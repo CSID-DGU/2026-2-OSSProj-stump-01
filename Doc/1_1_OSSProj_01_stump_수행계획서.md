@@ -194,7 +194,8 @@ Google Patents와 KIPRIS에서 "가로수 관리", "수목 관리", "QR 수목 �
 
 ##### 시스템 구성도 (블록 다이어그램)
 
-![TreeMate 전체 시스템 구성도](images/1_block.png)
+<img width="3480" height="1660" alt="1_block" src="https://github.com/user-attachments/assets/9f11959d-c1a1-4d9e-bda2-018c1053a89f" />
+
 
 **[그림 1] TreeMate 전체 시스템 구성도**
 
