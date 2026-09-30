@@ -196,7 +196,6 @@ Google Patents와 KIPRIS에서 "가로수 관리", "수목 관리", "QR 수목 �
 
 <img width="3480" height="1660" alt="1_block" src="https://github.com/user-attachments/assets/9f11959d-c1a1-4d9e-bda2-018c1053a89f" />
 
-
 **[그림 1] TreeMate 전체 시스템 구성도**
 
 - **Client-side**: 시민용 웹(나무 지도·QR 이야기, 기록 3종, 입양·교육·이야기, 나이테·알림)과 구청 대시보드(신고 처리 큐, 물 부족·사각지대, 기금·참여 현황)로 구성되며, API Client를 통해 서버와 통신한다.
@@ -206,7 +205,7 @@ Google Patents와 KIPRIS에서 "가로수 관리", "수목 관리", "QR 수목 �
 
 ##### 사용자 ↔ 시스템 상호작용 (유스케이스 다이어그램)
 
-![TreeMate 유스케이스 다이어그램](images/2_usecase.png)
+<img width="2960" height="1840" alt="2_usecase" src="https://github.com/user-attachments/assets/b3aef9bf-8ad4-40ef-b1df-11a581a54ee3" />
 
 **[그림 2] TreeMate 유스케이스 다이어그램**
 
@@ -217,7 +216,7 @@ Google Patents와 KIPRIS에서 "가로수 관리", "수목 관리", "QR 수목 �
 
 ##### 핵심 처리 흐름 (시퀀스 다이어그램)
 
-![이상 신고 피드백 루프 시퀀스 다이어그램](images/3_sequence.png)
+<img width="3000" height="2160" alt="3_sequence" src="https://github.com/user-attachments/assets/fb8f79e3-6266-477b-94b5-da89a106c94c" />
 
 **[그림 3] 이상 신고 피드백 루프 시퀀스 다이어그램**
 
@@ -274,7 +273,7 @@ Google Patents와 KIPRIS에서 "가로수 관리", "수목 관리", "QR 수목 �
 
 ##### 전체 알고리즘 플로 차트
 
-![전체 알고리즘 흐름](images/4_flow.png)
+<img width="3440" height="2680" alt="4_flow" src="https://github.com/user-attachments/assets/fd528e5f-60c5-49d8-aaba-ea11860dfc77" />
 
 **[그림 4] 전체 알고리즘 흐름도**
 
