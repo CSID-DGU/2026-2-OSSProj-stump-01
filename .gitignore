@@ -1,0 +1,48 @@
+# ── 개인 설정 ──
+CLAUDE.local.md
+.claude/settings.local.json
+
+# ── 비밀 키 ──
+.env
+.env.*
+!.env.example
+
+# ── 공공데이터 원본 (공공누리 제4유형: 저장소에 포함하지 않음) ──
+Src/backend/data/raw/
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── 에디터 ──
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# ── 로그 ──
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Node.js / React ──
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# ── Java / Spring Boot (스택 후보) ──
+.gradle/
+out/
+target/
+*.class
+
+# ── Python (데이터 적재 스크립트용) ──
+__pycache__/
+*.pyc
+.venv/
+venv/
