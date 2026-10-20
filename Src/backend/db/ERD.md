@@ -2,6 +2,7 @@
 
 > 이슈 #17. 2026-10-22까지 이의가 없으면 확정한다. 확정되면 이 문서를 기준으로 마이그레이션을 만든다.
 > DB는 PostgreSQL + PostGIS 기준이다(#52에서 확정 대기).
+> 실제 컬럼 타입·제약조건은 `migrations/`가 기준이다. 이 다이어그램의 타입(`varchar` 등)은 개념용이고, 실제로는 `text`를 쓴다. 현재 DB 전체 구조는 `schema.sql`에서 볼 수 있다.
 
 수행계획서의 엔티티 9개(Tree, User, Adoption, Story, Record, Report, Weather, Fund, Notification)를 테이블로 옮겼다.
 이야기의 "덧붙인 글 목록"은 여러 개라서 `story_entries` 테이블 하나를 더 두었다.
@@ -105,6 +106,7 @@ erDiagram
     reports {
         bigint id PK
         bigint record_id FK,UK
+        varchar record_type "항상 report, 신고 기록에만 붙도록 FK에 씀"
         varchar category "leaning | broken_branch | pest | withering | other"
         varchar urgency "low | high, 유형으로 결정"
         varchar status "pending | inspecting | resolved"
@@ -176,6 +178,8 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
   - 나이테 조치 표식(#21): `reports.resolved_at`으로 월별 집계한다. 별도 테이블을 두지 않는다.
 - **나무당 입양자 1명**: `adoptions(tree_id)`에 `status = 'active'` 조건의 부분 유니크 인덱스를 건다.
 - **기록과 신고**: 신고도 기록 3종 중 하나라서 `records`에 공통 정보(나무·작성자·사진·위치)를 두고, 신고에만 있는 처리 정보는 `reports`에 1:1로 둔다. 시민-BE는 두 행을 함께 만들고, 구청-BE는 `reports`의 처리 컬럼만 바꾼다.
+  - `reports`는 `(record_id, record_type)`으로 `records(id, type)`를 참조하고 `record_type`은 항상 `report`다. 그래서 물주기·관찰 기록에 신고가 잘못 붙는 것을 DB가 막는다.
+- **상태 전이**: `reports`는 `inspected_at` 없이 `inspecting`/`resolved`가 될 수 없고, `resolved`일 때만 `resolved_at`이 있다. 현장 확인을 건너뛴 조치 완료를 DB가 막는다.
 - **신뢰도**: `is_trusted`는 신고할 때의 교육 이수 여부를 복사해 둔다. 나중에 이수하더라도 그전 신고의 신뢰도는 바뀌지 않는다.
 - **기금**: 적립과 집행을 `fund_transactions` 한 테이블에 `kind`로 나누어 쌓는다. 잔액은 합계로 계산한다.
 - **위치**: `geography(Point, 4326)`을 쓴다. 위치 확인 거리(#13)는 `ST_DWithin`, 지도 범위 조회(#4)는 공간 인덱스(GiST)로 처리한다.
