@@ -28,6 +28,21 @@ python3 -m venv .venv
 
 DB에 넣는 단계는 마이그레이션(#17)이 생기면 추가한다.
 
+## 기상
+
+`Src/.env`에 `KMA_SERVICE_KEY`(공공데이터포털 일반 인증키, Decoding 값)를 넣고 실행한다.
+
+```bash
+.venv/bin/python weather.py                                    # 어제까지 최근 365일 → raw/weather.csv
+.venv/bin/python weather.py --start 2025-01-01 --end 2025-12-31  # 기간 지정
+.venv/bin/python -m unittest test_weather.py
+```
+
+- 서울 지점(108) 하나만 받아서 `region`은 `seoul`이다.
+- 비가 오지 않은 날은 응답의 일강수량이 빈 값이라 0으로 저장한다.
+- 일 최고기온 33℃ 이상이면 폭염(`is_heatwave`)으로 표시한다.
+- 기상청은 전날 자료까지만 준다. 매일 수집은 상태 계산 엔진(#19)의 일 배치에서 이 스크립트를 부른다.
+
 ## 출처
 
 | 데이터 | 제공 | 라이선스 |
