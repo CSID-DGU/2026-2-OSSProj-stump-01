@@ -1,6 +1,6 @@
 # ERD (초안)
 
-> 이슈 #17. 팀 리뷰 전 초안이다. 확정되면 이 문서를 기준으로 마이그레이션을 만든다.
+> 이슈 #17. 2026-10-22까지 이의가 없으면 확정한다. 확정되면 이 문서를 기준으로 마이그레이션을 만든다.
 > DB는 PostgreSQL + PostGIS 기준이다(#52에서 확정 대기).
 
 수행계획서의 엔티티 9개(Tree, User, Adoption, Story, Record, Report, Weather, Fund, Notification)를 테이블로 옮겼다.
@@ -102,8 +102,8 @@ erDiagram
     reports {
         bigint id PK
         bigint record_id FK,UK
-        varchar category "신고 유형"
-        varchar urgency "low | high"
+        varchar category "leaning | broken_branch | pest | withering | other"
+        varchar urgency "low | high, 유형으로 결정"
         varchar status "pending | inspecting | resolved"
         varchar district "배정 자치구"
         boolean is_trusted "신고 시점 교육 이수 여부"
@@ -188,11 +188,37 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 | `fund_transactions` | `deposit`: 시민-BE(입양) / `expense`: 구청-BE | |
 | `trees` 나머지 컬럼, `weather` | 공공데이터 적재 스크립트 | |
 
-## 팀 확인 필요
+## 기본값 (2026-10-22까지 이의가 없으면 확정)
 
-1. 신고 유형(`reports.category`) 목록: 예) 가지 꺾임, 기울어짐, 병해충 의심, 쓰레기, 기타
-2. 긴급도(`reports.urgency`)를 시민이 고르는지, 신고 유형으로 정해지는지
-3. 공동 기금 집행 알림을 누구에게 보내는지: 해당 자치구의 모든 입양자 / 공동 기금에 낸 입양자 전체
-4. 관찰 체크리스트 항목(`records.checklist`): 교육 콘텐츠(#34)와 맞춰 정한다
-5. 기상 데이터 지역 단위: 서울 관측소 1곳(`seoul`)만 쓸지, 자치구별 관측값을 쓸지
-6. 이 ERD에 넣지 않은 기능(교육·퀴즈 응시 기록 #10, 배지 #15, 타임캡슐 #16)은 담당자가 테이블을 추가할 때 이 문서에 이어서 적는다
+### 신고 유형과 긴급도
+
+긴급도는 시민이 고르지 않고 신고 유형으로 정한다. 시민이 고르게 하면 대부분 "긴급"을 고르게 되어 큐 정렬이 의미가 없어진다. 시민-BE가 신고를 만들 때 아래 표대로 `urgency`를 채운다.
+
+| `reports.category` | 화면 표시 | `urgency` |
+|---|---|---|
+| `leaning` | 기울어짐·쓰러짐 | `high` |
+| `broken_branch` | 가지 꺾임 | `high` |
+| `pest` | 병해충 의심 | `low` |
+| `withering` | 시듦·고사 의심 | `low` |
+| `other` | 기타 | `low` |
+
+### 관찰 체크리스트
+
+`records.checklist`는 항목별로 이상이 있으면 `true`인 JSON이다. 교육 콘텐츠(#34)가 정해지면 항목을 맞춘다.
+
+```json
+{ "leaf": false, "trunk_branch": true, "dry_soil": false, "trash": false }
+```
+
+| 키 | 화면 표시 |
+|---|---|
+| `leaf` | 잎 상태 이상(변색·마름) |
+| `trunk_branch` | 줄기·가지 손상 |
+| `dry_soil` | 흙이 말라 있음 |
+| `trash` | 주변 쓰레기 |
+
+### 그 밖의 기본값
+
+- 공동 기금 집행 알림은 `target_district` 자치구의 현재 입양자(`adoptions.status = 'active'`)에게 보낸다. 나무 기금 집행 알림은 그 나무의 현재 입양자에게 보낸다.
+- 기상 데이터는 서울 관측소 1곳(`region = 'seoul'`)으로 시작한다. 자치구별 관측값은 #18에서 데이터를 확인한 뒤 바꿀 수 있다.
+- 이 ERD에 넣지 않은 기능(교육·퀴즈 응시 기록 #10, 배지 #15, 타임캡슐 #16)은 담당자가 테이블을 추가할 때 이 문서에 이어서 적는다.
