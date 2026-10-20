@@ -33,18 +33,21 @@ erDiagram
         varchar nickname
         varchar real_name "실명(이야기 실명 공개용)"
         varchar role "citizen | officer"
-        varchar district "구청 담당자의 소속 자치구"
+        varchar agency "구청 담당자의 소속 관리청"
         timestamptz education_completed_at "교육 이수 시각, null=미이수"
         timestamptz created_at
     }
 
     trees {
         bigint id PK
-        varchar source_id UK "공공데이터 원본 관리번호"
+        varchar source_key UK "관리청|경도|위도, 원본에 관리번호가 없음"
         varchar species "수종"
         geography location "Point, WGS84"
-        varchar district "자치구"
-        varchar dong "법정동"
+        varchar agency "관리청, 신고 배정 기준"
+        varchar district "위치한 자치구"
+        varchar dong "위치한 법정동"
+        varchar road_name "노선"
+        varchar address "지번 주소"
         varchar water_need "enough | normal | thirsty"
         varchar health_status "good | check | urgent"
         timestamptz status_updated_at "상태 계산 엔진이 마지막으로 쓴 시각"
@@ -105,7 +108,7 @@ erDiagram
         varchar category "leaning | broken_branch | pest | withering | other"
         varchar urgency "low | high, 유형으로 결정"
         varchar status "pending | inspecting | resolved"
-        varchar district "배정 자치구"
+        varchar agency "배정 관리청"
         boolean is_trusted "신고 시점 교육 이수 여부"
         bigint handled_by FK "처리한 구청 담당자"
         text action_note "조치 내용"
@@ -176,7 +179,23 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - **신뢰도**: `is_trusted`는 신고할 때의 교육 이수 여부를 복사해 둔다. 나중에 이수하더라도 그전 신고의 신뢰도는 바뀌지 않는다.
 - **기금**: 적립과 집행을 `fund_transactions` 한 테이블에 `kind`로 나누어 쌓는다. 잔액은 합계로 계산한다.
 - **위치**: `geography(Point, 4326)`을 쓴다. 위치 확인 거리(#13)는 `ST_DWithin`, 지도 범위 조회(#4)는 공간 인덱스(GiST)로 처리한다.
-- **자치구·동**: 별도 테이블 없이 문자열로 둔다. 드릴다운(#24)은 `district`, `dong`으로 묶어서 집계한다.
+- **관리청과 위치를 나눈다**: 가로수 데이터의 관리 주체(관리청)는 나무가 서 있는 자치구와 다를 수 있다(아래 "가로수 원본 데이터" 참고).
+  - `agency`(관리청): 신고 배정(#20)과 구청 담당자 권한의 기준. 25개 자치구 + `서울시설공단` + `중부공원여가센터`.
+  - `district`, `dong`(위치): 드릴다운(#24), 지도 필터, 공동 기금 집행 지역의 기준.
+  - 둘 다 별도 테이블 없이 문자열로 둔다.
+
+## 가로수 원본 데이터 (#18)
+
+[서울시 가로수 위치 정보(경도, 위도)](https://data.seoul.go.kr/dataList/OA-22904/S/1/datasetView.do), 2026년판 xlsx를 확인한 결과다. 공공누리 제4유형이라 원본은 커밋하지 않는다.
+
+- 287,636그루. 시트 27개(관리청별)이고, 각 시트의 컬럼은 `자치구`(실제로는 관리청), `노선`, `수종`, `도로명 주소`, `지번 주소`, `좌표(경도)`, `좌표(위도)` 7개다.
+- **관리번호가 없다.** 그래서 `source_key`를 `관리청|경도|위도`로 만들어 유니크 키로 쓴다. 매년 새 파일로 다시 적재할 때 이 키로 같은 나무를 찾는다. 좌표가 완전히 같은 행이 58개 있어서 적재할 때 중복을 걸러 낸다.
+- **관리청 ≠ 위치 자치구**: 자치구가 관리하는 나무 중 1,307그루는 다른 자치구에 서 있다(예: 용산구 관리, 마포구 공덕동 위치). `서울시설공단`(12,223그루)과 `중부공원여가센터`(727그루)는 자치구가 아닌 관리청이다.
+- **동**: 따로 컬럼이 없어서 지번 주소에서 법정동을 꺼낸다(457개 동). 지번 주소가 빈 1,098그루는 동을 비워 두고, 필요하면 행정구역 경계 데이터와 공간 조인해서 채운다.
+- **좌표**: WGS84 경도·위도라서 변환 없이 `geography(Point, 4326)`에 넣는다. 좌표가 없는 행은 1개다.
+- **수종 "공분"(5,881행)**: 나무가 없는 빈 식재 자리로 보인다. 확인될 때까지 적재에서 뺀다.
+
+기상 데이터는 [기상청 지상(종관, ASOS) 일자료 조회서비스](https://www.data.go.kr/data/15059093/openapi.do)(`getWthrDataList`, 서울 지점 `108`)를 쓴다. 일강수량 `sumRn`, 평균기온 `avgTa`, 최고기온 `maxTa`를 `weather`에 넣는다. 서울에 ASOS 지점이 1곳이라 `region`은 `seoul`로 시작한다.
 
 ## 담당 경계 (CLAUDE.md 시민·구청 경계 규칙)
 
@@ -220,5 +239,5 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 ### 그 밖의 기본값
 
 - 공동 기금 집행 알림은 `target_district` 자치구의 현재 입양자(`adoptions.status = 'active'`)에게 보낸다. 나무 기금 집행 알림은 그 나무의 현재 입양자에게 보낸다.
-- 기상 데이터는 서울 관측소 1곳(`region = 'seoul'`)으로 시작한다. 자치구별 관측값은 #18에서 데이터를 확인한 뒤 바꿀 수 있다.
+- 기상 데이터는 서울 관측소 1곳(`region = 'seoul'`)으로 시작한다. 자치구별 값이 필요하면 방재기상관측(AWS) 자료를 따로 검토한다.
 - 이 ERD에 넣지 않은 기능(교육·퀴즈 응시 기록 #10, 배지 #15, 타임캡슐 #16)은 담당자가 테이블을 추가할 때 이 문서에 이어서 적는다.
