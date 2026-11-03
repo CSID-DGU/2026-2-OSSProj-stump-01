@@ -46,6 +46,7 @@ TreeMate는 흩어진 **시민의 애착**을 **관리 데이터와 재원**으�
 - [수행계획서](./Doc/1_1_OSSProj_01_stump_수행계획서.md)
 - [수행계획 발표자료](./Doc/1_2_OSSProj_01_stump_수행계획발표자료.pdf)
 - [회의록](./Doc/1_3_OSSProj_01_stump_회의록.md)
+- [중간발표 회의록](https://github.com/CSID-DGU/2026-2-OSSProj-stump-01/blob/develop/Doc/2_3_OSSProj_01_stump_%ED%9A%8C%EC%9D%98%EB%A1%9D.pdf)
 
 ## 👥 팀원 및 연락처
 | 이름 | 역할 | 이메일 |
