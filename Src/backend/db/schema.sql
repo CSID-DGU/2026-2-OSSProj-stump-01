@@ -275,9 +275,11 @@ CREATE TABLE public.rentals (
     handled_at timestamp with time zone,
     received_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    reject_reason text,
     CONSTRAINT rentals_handled CHECK (((status = 'requested'::text) OR ((handled_by IS NOT NULL) AND (handled_at IS NOT NULL)))),
     CONSTRAINT rentals_quantity_check CHECK ((quantity > 0)),
     CONSTRAINT rentals_received_at CHECK (((status = 'received'::text) = (received_at IS NOT NULL))),
+    CONSTRAINT rentals_reject_reason CHECK (((status = 'rejected'::text) OR (reject_reason IS NULL))),
     CONSTRAINT rentals_status_check CHECK ((status = ANY (ARRAY['requested'::text, 'approved'::text, 'rejected'::text, 'received'::text])))
 );
 
@@ -1168,4 +1170,5 @@ ALTER TABLE ONLY public.volunteer_hours
 
 INSERT INTO public.schema_migrations (version) VALUES
     ('20261020092817'),
-    ('20261112120000');
+    ('20261112120000'),
+    ('20261112180000');
