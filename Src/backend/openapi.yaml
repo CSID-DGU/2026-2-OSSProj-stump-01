@@ -353,6 +353,81 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /admin/incident-reports:
+    get:
+      tags: [구청]
+      summary: 이상 신고 처리 큐 (내 관리청)
+      description: |
+        관리청에 배정된 이상 신고(DB의 reports). 공개 게시하지 않고 구청 담당자만 본다.
+        기본(unresolved)은 확인 필요·현장 확인 신고를 오래 기다린 순(경과일순)으로, resolved는 최근 완료 순으로 준다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [unresolved, pending, inspecting, resolved], default: unresolved } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: 신고 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/IncidentReport' } }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/incident-reports/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [구청]
+      summary: 이상 신고 상세
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 신고
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IncidentReport' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [구청]
+      summary: 이상 신고 처리 (현장 확인·조치 완료·처리 메모)
+      description: |
+        상태는 pending(확인 필요) → inspecting(현장 확인) → resolved(조치 완료) 순서로 한 단계씩만 바뀐다.
+        조치 완료에는 조치 내용(actionNote)이 필요하다(앞서 남긴 메모가 있으면 그것을 쓴다). status 없이 actionNote만 고칠 수도 있다.
+        조치 완료하면 신고자와 그 나무의 승인된 돌보미에게 `report_resolved` 알림을 보낸다(같은 트랜잭션, 중복 없이 한 번씩).
+        조치 완료한 신고는 더 바꿀 수 없다(409).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                status: { type: string, enum: [inspecting, resolved] }
+                actionNote: { type: string, maxLength: 1000 }
+            examples:
+              현장 확인: { value: { status: inspecting, actionNote: 내일 현장 방문 } }
+              조치 완료: { value: { status: resolved, actionNote: 지지대 보강 } }
+              메모만: { value: { actionNote: 담당 부서 전달 } }
+      responses:
+        '200':
+          description: 처리된 신고
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IncidentReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -563,6 +638,45 @@ components:
             id: { type: integer }
             nickname: { type: string }
             realName: { type: [string, 'null'] }
+    IncidentReport:
+      type: object
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [pending, inspecting, resolved], description: 확인 필요 / 현장 확인 / 조치 완료 }
+        category: { type: string, enum: [leaning, broken_branch, pest, withering, other] }
+        categoryLabel: { type: string, example: 기울어짐·쓰러짐 }
+        urgency: { type: string, enum: [low, high] }
+        isTrusted: { type: boolean, description: 신고 시점에 교육을 이수한 신고자인지 }
+        actionNote: { type: [string, 'null'], description: 처리 메모·조치 내용 }
+        createdAt: { type: string, format: date-time }
+        inspectedAt: { type: [string, 'null'], format: date-time }
+        resolvedAt: { type: [string, 'null'], format: date-time }
+        handledBy: { type: [integer, 'null'] }
+        elapsedDays: { type: integer, description: 접수 후 지난 날 수(한국 날짜). 조치 완료면 완료까지 걸린 날 수 }
+        photoUrl: { type: [string, 'null'] }
+        location:
+          type: [object, 'null']
+          description: 신고한 위치
+          properties:
+            lat: { type: number }
+            lng: { type: number }
+        reporter:
+          type: object
+          properties:
+            id: { type: integer }
+            nickname: { type: string }
+        tree:
+          type: object
+          properties:
+            id: { type: integer }
+            species: { type: string }
+            roadName: { type: [string, 'null'] }
+            address: { type: [string, 'null'] }
+            location:
+              type: object
+              properties:
+                lat: { type: number }
+                lng: { type: number }
   responses:
     BadRequest:
       description: 요청 값이 올바르지 않음
