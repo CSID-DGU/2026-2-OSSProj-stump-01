@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { authenticate, requireOfficer } from '../common/auth.js';
 import { applicationsRouter } from './applications.js';
 import { dashboardRouter } from './dashboard.js';
+import { incidentReportsRouter } from './incident-reports.js';
 import { monthlyReportsRouter } from './monthly-reports.js';
 import { rentalItemsRouter, rentalsRouter } from './rentals.js';
 
@@ -17,3 +18,4 @@ districtRouter.use('/monthly-reports', monthlyReportsRouter); // #69 보고서 �
 districtRouter.use('/dashboard', dashboardRouter); // #71 한눈에 보기
 districtRouter.use('/rental-items', rentalItemsRouter); // #70 물품·재고
 districtRouter.use('/rentals', rentalsRouter); // #70 물품 신청 처리
+districtRouter.use('/incident-reports', incidentReportsRouter); // #20 신고 처리 큐

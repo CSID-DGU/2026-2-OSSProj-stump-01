@@ -252,7 +252,7 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - **저장하지 않고 계산하는 값**: 다른 테이블에서 바로 구할 수 있어서 컬럼으로 두지 않았다. 컬럼으로 두면 원본과 값이 어긋날 수 있다.
   - 나무의 돌보미 여부·돌보미 수: `caregiver_applications`에서 `status = 'approved'`인 행으로 판단한다.
   - 스탬프 수: `records`(`type = 'activity'`) 수를 센다. 5·10회가 되면 `user_badges` 행을 만든다.
-  - 나이테 조치 표식: `reports.resolved_at`으로 월별 집계한다.
+  - 나이테 신고·조치 표식: `reports.created_at`·`resolved_at`을 한국 시간 월별로 센다. 나이테 집계는 `backend/common/incident-markers.ts`의 `monthlyIncidentMarkers(db, treeId, year)`를 부른다(#21).
 - **보고서와 기록**: 보고서를 제출하면 고른 날짜의 활동 기록에 `monthly_report_id`를 채운다. 보고서 작성 화면은 `monthly_report_id IS NULL`인 기록이 있는 날짜만 보여 주므로, 이미 제출한 날짜는 다시 고를 수 없다.
   - `records (monthly_report_id, user_id)`가 `monthly_reports (id, user_id)`를 참조해서 남의 보고서에 기록이 묶이는 것을 DB가 막는다. `volunteer_hours`도 같은 방식이다.
   - 이상 신고(`type = 'report'`)는 보고서에 묶이지 않는다(CHECK).
