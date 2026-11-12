@@ -2,11 +2,14 @@
 // 신고 생성은 시민-BE, 상태 변경은 구청-BE가 한다(CLAUDE.md 경계 규칙). DB 테이블은 reports다.
 // 월간 보고서(monthly-reports)와 헷갈리지 않게 API에서는 incident-reports라고 부른다.
 // 신고는 공개 게시하지 않는다. 이 API는 구청 담당자만, 자기 관리청(reports.agency)에 배정된 신고만 본다.
+// #21 조치 완료 후처리: 조치 완료하면 신고자와 그 나무의 돌보미에게 개별 알림을 보낸다(같은 트랜잭션).
+// 나이테의 신고·조치 표식은 reports.created_at·resolved_at으로 집계한다(common/incident-markers.ts).
 import { Router } from 'express';
 import { z } from 'zod';
 import { officerOf } from '../common/auth.js';
 import { getPool, withTransaction, type Db } from '../common/db.js';
 import { badRequest, conflict, notFound } from '../common/errors.js';
+import { createNotification } from '../common/notifications.js';
 
 // ── 기준값 ──
 const DEFAULT_PAGE_SIZE = 50;
@@ -124,6 +127,46 @@ export async function findIncident(db: Db, agency: string, id: number): Promise<
   return rows[0] && toView(rows[0]);
 }
 
+/** 나무를 부르는 이름: "노선 수종" (노선이 없으면 주소) */
+function treeLabel(tree: IncidentView['tree']): string {
+  return `${tree.roadName ?? tree.address ?? ''} ${tree.species}`.trim();
+}
+
+/**
+ * #21 조치 완료 알림. 신고자와, 그 나무에 지금 승인된 돌보미에게 한 번씩 보낸다.
+ * 신고자가 그 나무의 돌보미이기도 하면 신고자 알림 하나만 보낸다.
+ */
+async function notifyResolved(db: Db, incident: IncidentView): Promise<void> {
+  const tree = treeLabel(incident.tree);
+  const what = `${tree} ${incident.categoryLabel} 신고`;
+  const action = incident.actionNote ? ` 조치 내용: ${incident.actionNote}` : '';
+
+  await createNotification(db, {
+    userId: incident.reporter.id,
+    type: 'report_resolved',
+    treeId: incident.tree.id,
+    reportId: incident.id,
+    title: '신고하신 나무의 조치가 끝났어요',
+    body: `${what}가 조치 완료되었어요.${action}`,
+  });
+
+  const { rows } = await db.query<{ user_id: number }>(
+    `SELECT DISTINCT user_id FROM caregiver_applications
+     WHERE tree_id = $1 AND status = 'approved' AND user_id <> $2`,
+    [incident.tree.id, incident.reporter.id],
+  );
+  for (const { user_id } of rows) {
+    await createNotification(db, {
+      userId: user_id,
+      type: 'report_resolved',
+      treeId: incident.tree.id,
+      reportId: incident.id,
+      title: '돌보는 나무의 신고가 조치되었어요',
+      body: `${what}가 조치 완료되었어요.${action}`,
+    });
+  }
+}
+
 // ── 라우터 (/admin/incident-reports) ──
 export const incidentReportsRouter = Router();
 
@@ -185,7 +228,9 @@ incidentReportsRouter.patch('/:id', async (req, res) => {
        WHERE id = $1`,
       [id, body.status ?? null, body.actionNote ?? null, officer.id],
     );
-    return (await findIncident(db, officer.agency, id))!;
+    const updated = (await findIncident(db, officer.agency, id))!;
+    if (body.status === 'resolved') await notifyResolved(db, updated); // #21
+    return updated;
   });
 
   res.json(incident);
