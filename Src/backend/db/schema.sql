@@ -34,36 +34,34 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: adoptions; Type: TABLE; Schema: public; Owner: -
+-- Name: caregiver_applications; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.adoptions (
+CREATE TABLE public.caregiver_applications (
     id bigint NOT NULL,
-    tree_id bigint NOT NULL,
     user_id bigint NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    start_date date NOT NULL,
-    end_date date NOT NULL,
-    paid_amount integer DEFAULT 0 NOT NULL,
-    discount_amount integer DEFAULT 0 NOT NULL,
-    plaque_status text DEFAULT 'none'::text NOT NULL,
-    sbt_status text DEFAULT 'none'::text NOT NULL,
+    tree_id bigint NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    period_start date NOT NULL,
+    period_end date NOT NULL,
+    motivation text,
+    reject_reason text,
+    reviewed_by bigint,
+    reviewed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT adoptions_discount_amount_check CHECK ((discount_amount >= 0)),
-    CONSTRAINT adoptions_paid_amount_check CHECK ((paid_amount >= 0)),
-    CONSTRAINT adoptions_period CHECK ((end_date > start_date)),
-    CONSTRAINT adoptions_plaque_status_check CHECK ((plaque_status = ANY (ARRAY['none'::text, 'requested'::text, 'issued'::text]))),
-    CONSTRAINT adoptions_sbt_status_check CHECK ((sbt_status = ANY (ARRAY['none'::text, 'issued'::text]))),
-    CONSTRAINT adoptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'cancelled'::text])))
+    CONSTRAINT caregiver_applications_period CHECK ((period_end >= period_start)),
+    CONSTRAINT caregiver_applications_reject_reason CHECK (((status <> 'rejected'::text) OR (reject_reason IS NOT NULL))),
+    CONSTRAINT caregiver_applications_reviewed CHECK (((status <> ALL (ARRAY['approved'::text, 'rejected'::text])) OR ((reviewed_by IS NOT NULL) AND (reviewed_at IS NOT NULL)))),
+    CONSTRAINT caregiver_applications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'ended'::text])))
 );
 
 
 --
--- Name: adoptions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: caregiver_applications_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-ALTER TABLE public.adoptions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.adoptions_id_seq
+ALTER TABLE public.caregiver_applications ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.caregiver_applications_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -73,35 +71,32 @@ ALTER TABLE public.adoptions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
--- Name: fund_transactions; Type: TABLE; Schema: public; Owner: -
+-- Name: monthly_reports; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.fund_transactions (
+CREATE TABLE public.monthly_reports (
     id bigint NOT NULL,
-    kind text NOT NULL,
-    category text NOT NULL,
-    amount integer NOT NULL,
-    adoption_id bigint,
-    target_tree_id bigint,
-    target_district text,
-    description text,
-    created_by bigint,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT fund_common_expense_has_district CHECK (((kind <> 'expense'::text) OR (category <> 'common'::text) OR (target_district IS NOT NULL))),
-    CONSTRAINT fund_deposit_has_adoption CHECK (((kind <> 'deposit'::text) OR (adoption_id IS NOT NULL))),
-    CONSTRAINT fund_transactions_amount_check CHECK ((amount > 0)),
-    CONSTRAINT fund_transactions_category_check CHECK ((category = ANY (ARRAY['plaque'::text, 'tree'::text, 'common'::text]))),
-    CONSTRAINT fund_transactions_kind_check CHECK ((kind = ANY (ARRAY['deposit'::text, 'expense'::text]))),
-    CONSTRAINT fund_tree_expense_has_tree CHECK (((kind <> 'expense'::text) OR (category <> 'tree'::text) OR (target_tree_id IS NOT NULL)))
+    user_id bigint NOT NULL,
+    agency text NOT NULL,
+    status text DEFAULT 'submitted'::text NOT NULL,
+    total_minutes integer NOT NULL,
+    review_note text,
+    reviewed_by bigint,
+    reviewed_at timestamp with time zone,
+    submitted_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT monthly_reports_reviewed CHECK (((status = 'submitted'::text) OR ((reviewed_by IS NOT NULL) AND (reviewed_at IS NOT NULL)))),
+    CONSTRAINT monthly_reports_revision_note CHECK (((status <> 'revision_requested'::text) OR (review_note IS NOT NULL))),
+    CONSTRAINT monthly_reports_status_check CHECK ((status = ANY (ARRAY['submitted'::text, 'approved'::text, 'revision_requested'::text]))),
+    CONSTRAINT monthly_reports_total_minutes_check CHECK ((total_minutes >= 0))
 );
 
 
 --
--- Name: fund_transactions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: monthly_reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-ALTER TABLE public.fund_transactions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.fund_transactions_id_seq
+ALTER TABLE public.monthly_reports ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.monthly_reports_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -120,14 +115,12 @@ CREATE TABLE public.notifications (
     type text NOT NULL,
     tree_id bigint,
     report_id bigint,
-    fund_transaction_id bigint,
     title text NOT NULL,
     body text NOT NULL,
     read_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT notifications_fund CHECK (((type <> 'fund_used'::text) OR (fund_transaction_id IS NOT NULL))),
     CONSTRAINT notifications_report CHECK (((type <> 'report_resolved'::text) OR (report_id IS NOT NULL))),
-    CONSTRAINT notifications_type_check CHECK ((type = ANY (ARRAY['report_resolved'::text, 'fund_used'::text])))
+    CONSTRAINT notifications_type_check CHECK ((type = ANY (ARRAY['application_result'::text, 'monthly_report_result'::text, 'rental_result'::text, 'report_resolved'::text, 'story_reaction'::text])))
 );
 
 
@@ -146,6 +139,60 @@ ALTER TABLE public.notifications ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
+-- Name: organization_members; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organization_members (
+    id bigint NOT NULL,
+    organization_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    role text DEFAULT 'member'::text NOT NULL,
+    joined_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT organization_members_role_check CHECK ((role = ANY (ARRAY['admin'::text, 'member'::text])))
+);
+
+
+--
+-- Name: organization_members_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organization_members ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.organization_members_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: organizations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizations (
+    id bigint NOT NULL,
+    name text NOT NULL,
+    invite_code text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: organizations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organizations ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.organizations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: records; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -155,17 +202,20 @@ CREATE TABLE public.records (
     user_id bigint NOT NULL,
     type text NOT NULL,
     recorded_at timestamp with time zone DEFAULT now() NOT NULL,
-    water_amount_ml integer,
-    checklist jsonb,
     photo_url text,
     location public.geography(Point,4326),
     verification text DEFAULT 'none'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT records_checklist CHECK (((type = 'observe'::text) = (checklist IS NOT NULL))),
-    CONSTRAINT records_type_check CHECK ((type = ANY (ARRAY['water'::text, 'observe'::text, 'report'::text]))),
-    CONSTRAINT records_verification_check CHECK ((verification = ANY (ARRAY['none'::text, 'location'::text, 'photo'::text]))),
-    CONSTRAINT records_water_amount CHECK (((type = 'water'::text) = (water_amount_ml IS NOT NULL))),
-    CONSTRAINT records_water_amount_ml_check CHECK ((water_amount_ml > 0))
+    activity_date date,
+    activity_kind text,
+    duration_min integer,
+    memo text,
+    monthly_report_id bigint,
+    CONSTRAINT records_activity_fields CHECK (((type <> 'activity'::text) OR ((activity_date IS NOT NULL) AND (duration_min IS NOT NULL)))),
+    CONSTRAINT records_duration_min_check CHECK ((duration_min > 0)),
+    CONSTRAINT records_report_not_in_monthly CHECK (((type = 'activity'::text) OR (monthly_report_id IS NULL))),
+    CONSTRAINT records_type_check CHECK ((type = ANY (ARRAY['activity'::text, 'report'::text]))),
+    CONSTRAINT records_verification_check CHECK ((verification = ANY (ARRAY['none'::text, 'location'::text, 'photo'::text])))
 );
 
 
@@ -175,6 +225,69 @@ CREATE TABLE public.records (
 
 ALTER TABLE public.records ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.records_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: rental_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.rental_items (
+    id bigint NOT NULL,
+    agency text NOT NULL,
+    name text NOT NULL,
+    stock integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT rental_items_stock_check CHECK ((stock >= 0))
+);
+
+
+--
+-- Name: rental_items_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.rental_items ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.rental_items_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: rentals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.rentals (
+    id bigint NOT NULL,
+    item_id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    quantity integer DEFAULT 1 NOT NULL,
+    status text DEFAULT 'requested'::text NOT NULL,
+    handled_by bigint,
+    handled_at timestamp with time zone,
+    received_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT rentals_handled CHECK (((status = 'requested'::text) OR ((handled_by IS NOT NULL) AND (handled_at IS NOT NULL)))),
+    CONSTRAINT rentals_quantity_check CHECK ((quantity > 0)),
+    CONSTRAINT rentals_received_at CHECK (((status = 'received'::text) = (received_at IS NOT NULL))),
+    CONSTRAINT rentals_status_check CHECK ((status = ANY (ARRAY['requested'::text, 'approved'::text, 'rejected'::text, 'received'::text])))
+);
+
+
+--
+-- Name: rentals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.rentals ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.rentals_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -239,15 +352,13 @@ CREATE TABLE public.schema_migrations (
 
 CREATE TABLE public.stories (
     id bigint NOT NULL,
-    adoption_id bigint NOT NULL,
     tree_name text NOT NULL,
     body text NOT NULL,
     photo_url text,
     is_public boolean DEFAULT false NOT NULL,
-    author_display text DEFAULT 'nickname'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT stories_author_display_check CHECK ((author_display = ANY (ARRAY['real_name'::text, 'nickname'::text])))
+    tree_id bigint NOT NULL
 );
 
 
@@ -274,7 +385,10 @@ CREATE TABLE public.story_entries (
     story_id bigint NOT NULL,
     body text NOT NULL,
     photo_url text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    user_id bigint NOT NULL,
+    author_display text DEFAULT 'nickname'::text NOT NULL,
+    CONSTRAINT story_entries_author_display_check CHECK ((author_display = ANY (ARRAY['real_name'::text, 'nickname'::text])))
 );
 
 
@@ -284,6 +398,37 @@ CREATE TABLE public.story_entries (
 
 ALTER TABLE public.story_entries ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.story_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: story_reactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.story_reactions (
+    id bigint NOT NULL,
+    story_entry_id bigint NOT NULL,
+    kind text NOT NULL,
+    body text,
+    device_key text NOT NULL,
+    reacted_on date DEFAULT ((now() AT TIME ZONE 'Asia/Seoul'::text))::date NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT story_reactions_body CHECK ((((kind = 'reply'::text) AND (body IS NOT NULL) AND ((char_length(body) >= 1) AND (char_length(body) <= 80))) OR ((kind = 'like'::text) AND (body IS NULL)))),
+    CONSTRAINT story_reactions_kind_check CHECK ((kind = ANY (ARRAY['like'::text, 'reply'::text])))
+);
+
+
+--
+-- Name: story_reactions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.story_reactions ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.story_reactions_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -306,12 +451,10 @@ CREATE TABLE public.trees (
     dong text,
     road_name text,
     address text,
-    water_need text DEFAULT 'normal'::text NOT NULL,
     health_status text DEFAULT 'good'::text NOT NULL,
     status_updated_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT trees_health_status_check CHECK ((health_status = ANY (ARRAY['good'::text, 'check'::text, 'urgent'::text]))),
-    CONSTRAINT trees_water_need_check CHECK ((water_need = ANY (ARRAY['enough'::text, 'normal'::text, 'thirsty'::text])))
+    CONSTRAINT trees_health_status_check CHECK ((health_status = ANY (ARRAY['good'::text, 'check'::text, 'urgent'::text])))
 );
 
 
@@ -321,6 +464,32 @@ CREATE TABLE public.trees (
 
 ALTER TABLE public.trees ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.trees_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: user_badges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.user_badges (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    badge_code text NOT NULL,
+    earned_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: user_badges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.user_badges ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.user_badges_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -363,6 +532,35 @@ ALTER TABLE public.users ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: volunteer_hours; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.volunteer_hours (
+    id bigint NOT NULL,
+    user_id bigint NOT NULL,
+    monthly_report_id bigint NOT NULL,
+    minutes integer NOT NULL,
+    recorded_by bigint NOT NULL,
+    recorded_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT volunteer_hours_minutes_check CHECK ((minutes > 0))
+);
+
+
+--
+-- Name: volunteer_hours_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.volunteer_hours ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.volunteer_hours_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: weather; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -377,19 +575,27 @@ CREATE TABLE public.weather (
 
 
 --
--- Name: adoptions adoptions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: caregiver_applications caregiver_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.adoptions
-    ADD CONSTRAINT adoptions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.caregiver_applications
+    ADD CONSTRAINT caregiver_applications_pkey PRIMARY KEY (id);
 
 
 --
--- Name: fund_transactions fund_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: monthly_reports monthly_reports_id_user_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.fund_transactions
-    ADD CONSTRAINT fund_transactions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.monthly_reports
+    ADD CONSTRAINT monthly_reports_id_user_key UNIQUE (id, user_id);
+
+
+--
+-- Name: monthly_reports monthly_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_reports
+    ADD CONSTRAINT monthly_reports_pkey PRIMARY KEY (id);
 
 
 --
@@ -398,6 +604,38 @@ ALTER TABLE ONLY public.fund_transactions
 
 ALTER TABLE ONLY public.notifications
     ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organization_members organization_members_org_user_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT organization_members_org_user_key UNIQUE (organization_id, user_id);
+
+
+--
+-- Name: organization_members organization_members_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT organization_members_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organizations organizations_invite_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT organizations_invite_code_key UNIQUE (invite_code);
+
+
+--
+-- Name: organizations organizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizations
+    ADD CONSTRAINT organizations_pkey PRIMARY KEY (id);
 
 
 --
@@ -414,6 +652,30 @@ ALTER TABLE ONLY public.records
 
 ALTER TABLE ONLY public.records
     ADD CONSTRAINT records_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rental_items rental_items_agency_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rental_items
+    ADD CONSTRAINT rental_items_agency_name_key UNIQUE (agency, name);
+
+
+--
+-- Name: rental_items rental_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rental_items
+    ADD CONSTRAINT rental_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: rentals rentals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rentals
+    ADD CONSTRAINT rentals_pkey PRIMARY KEY (id);
 
 
 --
@@ -441,14 +703,6 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
--- Name: stories stories_adoption_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.stories
-    ADD CONSTRAINT stories_adoption_id_key UNIQUE (adoption_id);
-
-
---
 -- Name: stories stories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -457,11 +711,35 @@ ALTER TABLE ONLY public.stories
 
 
 --
+-- Name: stories stories_tree_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stories
+    ADD CONSTRAINT stories_tree_id_key UNIQUE (tree_id);
+
+
+--
 -- Name: story_entries story_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.story_entries
     ADD CONSTRAINT story_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: story_reactions story_reactions_once_a_day; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.story_reactions
+    ADD CONSTRAINT story_reactions_once_a_day UNIQUE (story_entry_id, device_key, reacted_on);
+
+
+--
+-- Name: story_reactions story_reactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.story_reactions
+    ADD CONSTRAINT story_reactions_pkey PRIMARY KEY (id);
 
 
 --
@@ -481,6 +759,22 @@ ALTER TABLE ONLY public.trees
 
 
 --
+-- Name: user_badges user_badges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_badges
+    ADD CONSTRAINT user_badges_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_badges user_badges_user_badge_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_badges
+    ADD CONSTRAINT user_badges_user_badge_key UNIQUE (user_id, badge_code);
+
+
+--
 -- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -497,6 +791,22 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: volunteer_hours volunteer_hours_monthly_report_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.volunteer_hours
+    ADD CONSTRAINT volunteer_hours_monthly_report_id_key UNIQUE (monthly_report_id);
+
+
+--
+-- Name: volunteer_hours volunteer_hours_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.volunteer_hours
+    ADD CONSTRAINT volunteer_hours_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: weather weather_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -505,31 +815,38 @@ ALTER TABLE ONLY public.weather
 
 
 --
--- Name: adoptions_one_active_per_tree; Type: INDEX; Schema: public; Owner: -
+-- Name: caregiver_applications_one_open; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX adoptions_one_active_per_tree ON public.adoptions USING btree (tree_id) WHERE (status = 'active'::text);
-
-
---
--- Name: adoptions_user_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX adoptions_user_idx ON public.adoptions USING btree (user_id);
+CREATE UNIQUE INDEX caregiver_applications_one_open ON public.caregiver_applications USING btree (user_id, tree_id) WHERE (status = ANY (ARRAY['pending'::text, 'approved'::text]));
 
 
 --
--- Name: fund_transactions_adoption_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: caregiver_applications_tree_status_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX fund_transactions_adoption_idx ON public.fund_transactions USING btree (adoption_id);
+CREATE INDEX caregiver_applications_tree_status_idx ON public.caregiver_applications USING btree (tree_id, status);
 
 
 --
--- Name: fund_transactions_tree_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: caregiver_applications_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX fund_transactions_tree_idx ON public.fund_transactions USING btree (target_tree_id);
+CREATE INDEX caregiver_applications_user_idx ON public.caregiver_applications USING btree (user_id);
+
+
+--
+-- Name: monthly_reports_queue_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX monthly_reports_queue_idx ON public.monthly_reports USING btree (agency, submitted_at) WHERE (status = 'submitted'::text);
+
+
+--
+-- Name: monthly_reports_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX monthly_reports_user_idx ON public.monthly_reports USING btree (user_id);
 
 
 --
@@ -540,6 +857,20 @@ CREATE INDEX notifications_user_time_idx ON public.notifications USING btree (us
 
 
 --
+-- Name: organization_members_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organization_members_user_idx ON public.organization_members USING btree (user_id);
+
+
+--
+-- Name: records_monthly_report_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX records_monthly_report_idx ON public.records USING btree (monthly_report_id);
+
+
+--
 -- Name: records_tree_type_time_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -547,10 +878,31 @@ CREATE INDEX records_tree_type_time_idx ON public.records USING btree (tree_id, 
 
 
 --
+-- Name: records_unreported_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX records_unreported_idx ON public.records USING btree (user_id, activity_date) WHERE ((type = 'activity'::text) AND (monthly_report_id IS NULL));
+
+
+--
 -- Name: records_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX records_user_idx ON public.records USING btree (user_id);
+
+
+--
+-- Name: rentals_item_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX rentals_item_status_idx ON public.rentals USING btree (item_id, status);
+
+
+--
+-- Name: rentals_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX rentals_user_idx ON public.rentals USING btree (user_id);
 
 
 --
@@ -589,58 +941,50 @@ CREATE INDEX trees_location_idx ON public.trees USING gist (location);
 
 
 --
--- Name: trees_water_need_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: volunteer_hours_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX trees_water_need_idx ON public.trees USING btree (water_need) WHERE (water_need = 'thirsty'::text);
-
-
---
--- Name: adoptions adoptions_tree_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.adoptions
-    ADD CONSTRAINT adoptions_tree_id_fkey FOREIGN KEY (tree_id) REFERENCES public.trees(id);
+CREATE INDEX volunteer_hours_user_idx ON public.volunteer_hours USING btree (user_id, recorded_at);
 
 
 --
--- Name: adoptions adoptions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: caregiver_applications caregiver_applications_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.adoptions
-    ADD CONSTRAINT adoptions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: fund_transactions fund_transactions_adoption_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.fund_transactions
-    ADD CONSTRAINT fund_transactions_adoption_id_fkey FOREIGN KEY (adoption_id) REFERENCES public.adoptions(id);
+ALTER TABLE ONLY public.caregiver_applications
+    ADD CONSTRAINT caregiver_applications_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id);
 
 
 --
--- Name: fund_transactions fund_transactions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: caregiver_applications caregiver_applications_tree_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.fund_transactions
-    ADD CONSTRAINT fund_transactions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id);
-
-
---
--- Name: fund_transactions fund_transactions_target_tree_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.fund_transactions
-    ADD CONSTRAINT fund_transactions_target_tree_id_fkey FOREIGN KEY (target_tree_id) REFERENCES public.trees(id);
+ALTER TABLE ONLY public.caregiver_applications
+    ADD CONSTRAINT caregiver_applications_tree_id_fkey FOREIGN KEY (tree_id) REFERENCES public.trees(id);
 
 
 --
--- Name: notifications notifications_fund_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: caregiver_applications caregiver_applications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.notifications
-    ADD CONSTRAINT notifications_fund_transaction_id_fkey FOREIGN KEY (fund_transaction_id) REFERENCES public.fund_transactions(id);
+ALTER TABLE ONLY public.caregiver_applications
+    ADD CONSTRAINT caregiver_applications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: monthly_reports monthly_reports_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_reports
+    ADD CONSTRAINT monthly_reports_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.users(id);
+
+
+--
+-- Name: monthly_reports monthly_reports_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monthly_reports
+    ADD CONSTRAINT monthly_reports_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -668,6 +1012,30 @@ ALTER TABLE ONLY public.notifications
 
 
 --
+-- Name: organization_members organization_members_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT organization_members_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id);
+
+
+--
+-- Name: organization_members organization_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_members
+    ADD CONSTRAINT organization_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: records records_monthly_report_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.records
+    ADD CONSTRAINT records_monthly_report_fk FOREIGN KEY (monthly_report_id, user_id) REFERENCES public.monthly_reports(id, user_id);
+
+
+--
 -- Name: records records_tree_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -681,6 +1049,30 @@ ALTER TABLE ONLY public.records
 
 ALTER TABLE ONLY public.records
     ADD CONSTRAINT records_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: rentals rentals_handled_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rentals
+    ADD CONSTRAINT rentals_handled_by_fkey FOREIGN KEY (handled_by) REFERENCES public.users(id);
+
+
+--
+-- Name: rentals rentals_item_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rentals
+    ADD CONSTRAINT rentals_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.rental_items(id);
+
+
+--
+-- Name: rentals rentals_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.rentals
+    ADD CONSTRAINT rentals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -700,11 +1092,11 @@ ALTER TABLE ONLY public.reports
 
 
 --
--- Name: stories stories_adoption_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: stories stories_tree_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.stories
-    ADD CONSTRAINT stories_adoption_id_fkey FOREIGN KEY (adoption_id) REFERENCES public.adoptions(id);
+    ADD CONSTRAINT stories_tree_id_fkey FOREIGN KEY (tree_id) REFERENCES public.trees(id);
 
 
 --
@@ -713,6 +1105,54 @@ ALTER TABLE ONLY public.stories
 
 ALTER TABLE ONLY public.story_entries
     ADD CONSTRAINT story_entries_story_id_fkey FOREIGN KEY (story_id) REFERENCES public.stories(id) ON DELETE CASCADE;
+
+
+--
+-- Name: story_entries story_entries_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.story_entries
+    ADD CONSTRAINT story_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: story_reactions story_reactions_story_entry_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.story_reactions
+    ADD CONSTRAINT story_reactions_story_entry_id_fkey FOREIGN KEY (story_entry_id) REFERENCES public.story_entries(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_badges user_badges_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.user_badges
+    ADD CONSTRAINT user_badges_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: volunteer_hours volunteer_hours_recorded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.volunteer_hours
+    ADD CONSTRAINT volunteer_hours_recorded_by_fkey FOREIGN KEY (recorded_by) REFERENCES public.users(id);
+
+
+--
+-- Name: volunteer_hours volunteer_hours_report_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.volunteer_hours
+    ADD CONSTRAINT volunteer_hours_report_fk FOREIGN KEY (monthly_report_id, user_id) REFERENCES public.monthly_reports(id, user_id);
+
+
+--
+-- Name: volunteer_hours volunteer_hours_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.volunteer_hours
+    ADD CONSTRAINT volunteer_hours_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --
@@ -727,4 +1167,5 @@ ALTER TABLE ONLY public.story_entries
 --
 
 INSERT INTO public.schema_migrations (version) VALUES
-    ('20261020092817');
+    ('20261020092817'),
+    ('20261112120000');
