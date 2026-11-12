@@ -3,6 +3,7 @@
 import { Router } from 'express';
 import { authenticate, requireOfficer } from '../common/auth.js';
 import { applicationsRouter } from './applications.js';
+import { monthlyReportsRouter } from './monthly-reports.js';
 
 export const districtRouter = Router();
 
@@ -10,3 +11,4 @@ districtRouter.use(authenticate, requireOfficer);
 
 // 기능별 라우터는 이슈마다 여기에 붙인다.
 districtRouter.use('/applications', applicationsRouter); // #68 신청 심사
+districtRouter.use('/monthly-reports', monthlyReportsRouter); // #69 보고서 검토·봉사시간

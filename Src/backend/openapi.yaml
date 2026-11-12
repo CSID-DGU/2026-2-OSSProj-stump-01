@@ -15,6 +15,7 @@ servers:
 tags:
   - name: 공통
   - name: 구청
+  - name: 시민
 
 paths:
   /health:
@@ -110,6 +111,123 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /admin/monthly-reports:
+    get:
+      tags: [구청]
+      summary: 월간 보고서 목록 (내 관리청)
+      description: 담당자 관리청에 제출된 보고서 목록. 검토 대기(submitted)는 오래 기다린 순, 나머지 상태는 최근 순이다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [submitted, approved, revision_requested], default: submitted } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: 보고서 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/MonthlyReport' } }
+                  total: { type: integer }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/monthly-reports/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [구청]
+      summary: 월간 보고서 상세 (묶인 활동 기록 포함)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 보고서와 활동 기록(날짜순)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MonthlyReportDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [구청]
+      summary: 월간 보고서 검토 (승인·보완 요청)
+      description: |
+        검토 대기(submitted) 보고서만 승인하거나 보완 요청한다. 보완 요청은 의견(reviewNote)이 필요하다.
+        승인하면 보고서의 활동 시간 합계(totalMinutes)를 봉사시간으로 기록한다.
+        상태 변경, 봉사시간 기록, 결과 알림(`monthly_report_result`)은 한 트랜잭션이다.
+        같은 보고서는 한 번만 인정된다(volunteer_hours.monthly_report_id 유일 제약).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [status]
+                  properties:
+                    status: { type: string, const: approved }
+                    reviewNote: { type: string, maxLength: 1000 }
+                - type: object
+                  required: [status, reviewNote]
+                  properties:
+                    status: { type: string, const: revision_requested }
+                    reviewNote: { type: string, minLength: 1, maxLength: 1000 }
+            examples:
+              승인: { value: { status: approved } }
+              보완 요청: { value: { status: revision_requested, reviewNote: 사진을 한 장 더 붙여 주세요 } }
+      responses:
+        '200':
+          description: 검토 결과가 반영된 보고서
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MonthlyReportDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /volunteer-hours/me:
+    get:
+      tags: [시민]
+      summary: 내 봉사시간
+      description: 구청이 승인해 기록된 내 봉사시간만 최신순으로 준다. 본인 것만 볼 수 있다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: year, in: query, description: 기록된 해(한국 시간). 없으면 전체, schema: { type: integer } }
+      responses:
+        '200':
+          description: 봉사시간 목록과 합계
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalMinutes: { type: integer }
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        minutes: { type: integer }
+                        recordedAt: { type: string, format: date-time }
+                        monthlyReport:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            agency: { type: string }
+                            submittedAt: { type: string, format: date-time }
+                            firstDate: { type: string, format: date }
+                            lastDate: { type: string, format: date }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -153,6 +271,52 @@ components:
             roadName: { type: [string, 'null'], description: 노선 }
             address: { type: [string, 'null'] }
             caregiverCount: { type: integer, description: 지금 승인된 돌보미 수 }
+    MonthlyReport:
+      type: object
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [submitted, approved, revision_requested], description: 검토 대기 / 승인 / 보완 요청 }
+        agency: { type: string, description: 제출한 관리청 }
+        totalMinutes: { type: integer, description: 묶인 기록의 활동 시간 합계(분) }
+        reviewNote: { type: [string, 'null'], description: 구청 의견 }
+        submittedAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [integer, 'null'] }
+        caregiver:
+          type: object
+          properties:
+            id: { type: integer }
+            nickname: { type: string }
+            realName: { type: [string, 'null'] }
+        recordCount: { type: integer }
+        treeCount: { type: integer }
+        firstDate: { type: [string, 'null'], format: date }
+        lastDate: { type: [string, 'null'], format: date }
+        volunteerMinutes: { type: [integer, 'null'], description: 승인되어 기록된 봉사시간(분) }
+    MonthlyReportDetail:
+      allOf:
+        - { $ref: '#/components/schemas/MonthlyReport' }
+        - type: object
+          properties:
+            records:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: { type: integer }
+                  activityDate: { type: string, format: date }
+                  activityKind: { type: [string, 'null'] }
+                  durationMin: { type: integer }
+                  memo: { type: [string, 'null'] }
+                  photoUrl: { type: [string, 'null'] }
+                  verification: { type: string, enum: [none, location, photo] }
+                  tree:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      species: { type: string }
+                      roadName: { type: [string, 'null'] }
+                      address: { type: [string, 'null'] }
   responses:
     BadRequest:
       description: 요청 값이 올바르지 않음
