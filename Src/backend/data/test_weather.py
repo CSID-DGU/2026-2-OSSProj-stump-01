@@ -29,6 +29,14 @@ class DefaultRangeTest(unittest.TestCase):
         self.assertEqual(end, date(2026, 10, 19))
         self.assertEqual((end - start).days + 1, 365)
 
+    def test_매일_수집용_최근_3일(self):
+        start, end = default_range(date(2026, 11, 13), days=3)
+        self.assertEqual((start, end), (date(2026, 11, 10), date(2026, 11, 12)))
+
+    def test_0일은_오류(self):
+        with self.assertRaises(ValueError):
+            default_range(date(2026, 11, 13), days=0)
+
 
 if __name__ == "__main__":
     unittest.main()
