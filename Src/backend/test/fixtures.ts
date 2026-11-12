@@ -42,3 +42,30 @@ export async function createTree(opts: { agency?: string; species?: string } = {
   );
   return rows[0]!.id;
 }
+
+export async function createApplication(opts: {
+  userId: number;
+  treeId: number;
+  status?: 'pending' | 'approved' | 'rejected' | 'ended';
+  reviewedBy?: number;
+  createdAt?: string;
+}) {
+  const status = opts.status ?? 'pending';
+  const reviewed = status === 'approved' || status === 'rejected';
+  const { rows } = await getPool().query<{ id: number }>(
+    `INSERT INTO caregiver_applications
+       (user_id, tree_id, status, period_start, period_end, motivation, reject_reason, reviewed_by, reviewed_at, created_at)
+     VALUES ($1, $2, $3, '2026-12-01', '2027-11-30', '집 앞 나무를 돌보고 싶어요', $4, $5, $6, COALESCE($7::timestamptz, now()))
+     RETURNING id`,
+    [
+      opts.userId,
+      opts.treeId,
+      status,
+      status === 'rejected' ? '테스트 반려' : null,
+      reviewed ? (opts.reviewedBy ?? null) : null,
+      reviewed ? new Date() : null,
+      opts.createdAt ?? null,
+    ],
+  );
+  return rows[0]!.id;
+}
