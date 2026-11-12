@@ -69,3 +69,33 @@ export async function createApplication(opts: {
   );
   return rows[0]!.id;
 }
+
+/**
+ * 제출된 월간 보고서를 만든다. dates마다 활동 기록 하나를 만들어 보고서에 묶는다.
+ * total_minutes는 기록 시간의 합계다(시민-BE가 제출할 때 하는 일을 흉내 낸다).
+ */
+export async function createMonthlyReport(opts: {
+  userId: number;
+  treeId: number;
+  agency?: string;
+  dates: string[];
+  minutesEach?: number;
+  submittedAt?: string;
+}) {
+  const minutesEach = opts.minutesEach ?? 30;
+  const pool = getPool();
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO monthly_reports (user_id, agency, total_minutes, submitted_at)
+     VALUES ($1, $2, $3, COALESCE($4::timestamptz, now())) RETURNING id`,
+    [opts.userId, opts.agency ?? '중구', minutesEach * opts.dates.length, opts.submittedAt ?? null],
+  );
+  const reportId = rows[0]!.id;
+  for (const date of opts.dates) {
+    await pool.query(
+      `INSERT INTO records (tree_id, user_id, type, activity_date, activity_kind, duration_min, memo, monthly_report_id)
+       VALUES ($1, $2, 'activity', $3, '주변 청소', $4, '쓰레기 주움', $5)`,
+      [opts.treeId, opts.userId, date, minutesEach, reportId],
+    );
+  }
+  return reportId;
+}
