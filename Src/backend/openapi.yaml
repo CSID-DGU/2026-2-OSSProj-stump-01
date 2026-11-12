@@ -489,6 +489,42 @@ paths:
               schema: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /trees:
+    get:
+      tags: [시민]
+      summary: 지도 범위 안의 나무 목록 (로그인 없음)
+      description: "공간 인덱스로 bbox 안의 나무를 찾는다. limit에 걸리면 truncated가 true다(지도를 더 확대하라는 뜻)."
+      parameters:
+        - { name: bbox, in: query, required: true, description: "서남쪽 경도,위도,동북쪽 경도,위도", schema: { type: string, example: "126.975,37.560,126.990,37.570" } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 2000, default: 500 } }
+        - { name: district, in: query, description: 자치구 이름(나무가 서 있는 위치 기준). 주면 그 구의 나무만, schema: { type: string, example: 중구 } }
+      responses:
+        '200':
+          description: 나무 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trees: { type: array, items: { $ref: '#/components/schemas/Tree' } }
+                  truncated: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+
+  /trees/{id}:
+    get:
+      tags: [시민]
+      summary: 나무 상세 (QR 이야기 페이지, 로그인 없음)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 나무
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreeDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -609,6 +645,29 @@ components:
       properties:
         token: { type: string, description: JWT. 7일 유효. Authorization Bearer 헤더에 넣는다 }
         user: { $ref: '#/components/schemas/User' }
+    Tree:
+      type: object
+      properties:
+        id: { type: integer }
+        code: { type: [string, 'null'], example: 11140-00123, description: 관리번호 "자치구코드-구 안 순번". 서울시 트리맵 번호가 공개되지 않아 자체 부여. 화면·QR 명판에 쓴다 }
+        species: { type: string, example: 은행나무 }
+        location:
+          type: object
+          properties: { lng: { type: number }, lat: { type: number } }
+        district: { type: string, description: 위치한 자치구, example: 중구 }
+        dong: { type: [string, 'null'] }
+        roadName: { type: [string, 'null'], description: 노선, example: 명동길 }
+        caregiverCount: { type: integer, description: 승인된 돌보미 수 }
+        hasOpenReport: { type: boolean, description: 조치 완료 전인 이상 신고가 있는지 }
+    TreeDetail:
+      allOf:
+        - { $ref: '#/components/schemas/Tree' }
+        - type: object
+          properties:
+            agency: { type: string, description: 관리청. 신고 배정·돌보미 심사 기준 }
+            address: { type: [string, 'null'] }
+            sameRoadCount: { type: integer, description: 같은 자치구·노선의 나무 수 }
+            sameDongCount: { type: integer, description: 같은 자치구·동의 나무 수 }
     Application:
       type: object
       properties:
