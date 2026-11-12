@@ -13,8 +13,10 @@ python3 -m venv .venv
 ## 가로수
 
 ```bash
-.venv/bin/python trees.py --download   # 원본 내려받기 + 정리 → raw/trees_clean.csv
-.venv/bin/python -m unittest test_trees.py   # 정리 규칙 테스트
+.venv/bin/python trees.py --download --load   # 원본 내려받기 + 정리 + DB 적재
+.venv/bin/python trees.py --load              # 이미 받은 원본(raw/trees2026.xlsx)으로 정리 + DB 적재
+.venv/bin/python trees.py                     # 정리만 → raw/trees_clean.csv
+.venv/bin/python -m unittest test_trees.py    # 정리 규칙 테스트
 ```
 
 정리 규칙:
@@ -26,22 +28,28 @@ python3 -m venv .venv
 
 2026년판 기준 결과: 원본 287,636행 → 281,697그루 저장(공분 5,881, 중복 좌표 57, 좌표 없음 1 제외). 동이 비어 있는 나무는 1,404그루다.
 
-DB에 넣는 단계는 마이그레이션(#17)이 생기면 추가한다.
+DB 적재(`--load`):
+
+- DB가 떠 있고 마이그레이션이 적용된 상태에서 실행한다(`Src/README.md`). 접속 정보는 `Src/.env`의 `POSTGRES_*` 값을 쓴다.
+- `source_key` 기준 upsert라 여러 번 실행해도 중복되지 않는다. 새 나무는 추가하고, 있던 나무는 원본 컬럼(수종·좌표·관리청·주소 등)만 고친다.
+- 원본에서 사라진 나무는 지우지 않고 개수만 알려 준다. 신청·기록·이야기가 그 나무를 참조하고 있을 수 있어서다.
 
 ## 기상
 
 `Src/.env`에 `KMA_SERVICE_KEY`(공공데이터포털 일반 인증키, Decoding 값)를 넣고 실행한다.
 
 ```bash
-.venv/bin/python weather.py                                    # 어제까지 최근 365일 → raw/weather.csv
-.venv/bin/python weather.py --start 2025-01-01 --end 2025-12-31  # 기간 지정
+.venv/bin/python weather.py --load                                    # 어제까지 최근 365일 수집 + DB 적재
+.venv/bin/python weather.py --start 2016-01-01 --end 2025-12-31 --load  # 기간 지정
+.venv/bin/python weather.py                                           # 수집만 → raw/weather.csv
 .venv/bin/python -m unittest test_weather.py
 ```
 
 - 서울 지점(108) 하나만 받아서 `region`은 `seoul`이다.
 - 비가 오지 않은 날은 응답의 일강수량이 빈 값이라 0으로 저장한다.
 - 일 최고기온 33℃ 이상이면 폭염(`is_heatwave`)으로 표시한다.
-- 기상청은 전날 자료까지만 준다. 매일 수집은 상태 계산 엔진(#19)의 일 배치에서 이 스크립트를 부른다.
+- `--load`는 `(date, region)` 기준 upsert다. 기상청이 지난 값을 고치는 경우가 있어 같은 날짜는 새 값으로 덮어쓴다.
+- 기상청은 전날 자료까지만 준다. 매일 수집은 오늘의 날씨(#72)에서 이어서 정한다.
 
 ## 출처
 

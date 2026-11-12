@@ -1,11 +1,12 @@
 """서울시 가로수 위치 정보(OA-22904)를 내려받아 정리한다.
 
 실행 (Src/backend/data 폴더에서):
-    python trees.py --download    # 원본 xlsx 내려받기 + 정리
-    python trees.py               # 이미 받은 원본으로 정리만
+    python trees.py --download --load   # 원본 내려받기 + 정리 + DB 적재
+    python trees.py --load              # 이미 받은 원본으로 정리 + DB 적재
+    python trees.py                     # 정리만
 
-결과는 raw/trees_clean.csv에 저장한다. 원본과 결과 모두 공공누리 제4유형이라 커밋하지 않는다(raw/는 .gitignore에 있음).
-DB 적재는 마이그레이션(#17)이 생기면 이 파일에 이어서 붙인다.
+정리 결과는 raw/trees_clean.csv에 저장한다. 원본과 결과 모두 공공누리 제4유형이라 커밋하지 않는다(raw/는 .gitignore에 있음).
+DB 적재는 source_key 기준 upsert라 여러 번 실행해도 중복되지 않는다.
 """
 
 from __future__ import annotations
@@ -193,9 +194,47 @@ def clean(xlsx: Path = RAW_XLSX, out: Path = CLEAN_CSV) -> Counter:
     return stats
 
 
+def load(csv_path: Path = CLEAN_CSV) -> dict:
+    """정리한 CSV를 trees 테이블에 넣는다.
+
+    새 나무는 추가하고, 이미 있는 나무(source_key가 같은 나무)는 원본 정보만 고친다.
+    원본에 있는 컬럼만 고치고 health_status 같은 서비스 컬럼은 건드리지 않는다.
+    원본에서 사라진 나무는 지우지 않는다. 신청·기록·이야기가 걸려 있을 수 있어서 개수만 알려 준다.
+    """
+    from db import connect, copy_csv  # DB 적재 단계에서만 필요해서 여기서 불러온다
+
+    fields = list(Tree.__dataclass_fields__)
+    with connect() as conn, conn.cursor() as cur:
+        cur.execute("""
+            CREATE TEMP TABLE trees_src (
+                source_key text, species text, lon float8, lat float8,
+                agency text, district text, dong text, road_name text, address text
+            ) ON COMMIT DROP
+        """)
+        copy_csv(cur, "trees_src", fields, csv_path)
+        cur.execute("""
+            INSERT INTO trees (source_key, species, location, agency, district, dong, road_name, address)
+            SELECT source_key, species, ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography,
+                   agency, district, dong, road_name, address
+            FROM trees_src
+            ON CONFLICT (source_key) DO UPDATE SET
+                species = EXCLUDED.species, location = EXCLUDED.location, agency = EXCLUDED.agency,
+                district = EXCLUDED.district, dong = EXCLUDED.dong,
+                road_name = EXCLUDED.road_name, address = EXCLUDED.address
+            RETURNING (xmax = 0) AS inserted
+        """)
+        inserted = sum(1 for (is_new,) in cur.fetchall() if is_new)
+        cur.execute("SELECT count(*) FROM trees_src")
+        (source_count,) = cur.fetchone()
+        cur.execute("SELECT count(*) FROM trees t WHERE NOT EXISTS (SELECT 1 FROM trees_src s WHERE s.source_key = t.source_key)")
+        (missing,) = cur.fetchone()
+    return {"추가": inserted, "갱신": source_count - inserted, "원본에 없는 기존 나무": missing}
+
+
 def main(argv: Optional[list] = None) -> int:
     parser = argparse.ArgumentParser(description="서울시 가로수 위치 정보 정리")
     parser.add_argument("--download", action="store_true", help="원본 xlsx를 먼저 내려받는다")
+    parser.add_argument("--load", action="store_true", help="정리한 결과를 DB trees 테이블에 넣는다")
     parser.add_argument("--xlsx", type=Path, default=RAW_XLSX)
     parser.add_argument("--out", type=Path, default=CLEAN_CSV)
     args = parser.parse_args(argv)
@@ -210,6 +249,11 @@ def main(argv: Optional[list] = None) -> int:
     print(f"저장: {args.out}")
     for key, count in stats.most_common():
         print(f"  {key}: {count:,}")
+
+    if args.load:
+        print("DB 적재: trees")
+        for key, count in load(args.out).items():
+            print(f"  {key}: {count:,}")
     return 0
 
 
