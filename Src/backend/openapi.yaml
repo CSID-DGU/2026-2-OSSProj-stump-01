@@ -31,6 +31,85 @@ paths:
                 properties:
                   status: { type: string, example: ok }
 
+  /admin/applications:
+    get:
+      tags: [구청]
+      summary: 돌보미 신청 목록 (내 관리청)
+      description: 담당자 관리청에 있는 나무의 신청서 목록. 대기(pending)는 오래 기다린 순, 나머지 상태는 최근 순이다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, ended], default: pending } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+      responses:
+        '200':
+          description: 신청 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Application' } }
+                  total: { type: integer, description: 조건에 맞는 전체 개수 }
+                  limit: { type: integer }
+                  offset: { type: integer }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/applications/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      tags: [구청]
+      summary: 돌보미 신청 상세
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 신청서
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [구청]
+      summary: 돌보미 신청 심사 (승인·반려)
+      description: |
+        대기(pending) 중인 신청서만 승인하거나 반려한다. 반려는 사유가 필요하다.
+        상태 변경과 함께 신청자에게 결과 알림(`application_result`)을 만든다.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [status]
+                  properties:
+                    status: { type: string, const: approved }
+                - type: object
+                  required: [status, rejectReason]
+                  properties:
+                    status: { type: string, const: rejected }
+                    rejectReason: { type: string, minLength: 1, maxLength: 500 }
+            examples:
+              승인: { value: { status: approved } }
+              반려: { value: { status: rejected, rejectReason: 이미 돌보미가 충분해요 } }
+      responses:
+        '200':
+          description: 심사 결과가 반영된 신청서
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Application' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -46,7 +125,45 @@ components:
           properties:
             code: { type: string, example: NOT_FOUND }
             message: { type: string }
+    Application:
+      type: object
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [pending, approved, rejected, ended], description: 대기 / 승인 / 반려 / 종료 }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        motivation: { type: [string, 'null'], description: 참여 동기 }
+        rejectReason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [integer, 'null'], description: 심사한 담당자 id }
+        applicant:
+          type: object
+          properties:
+            id: { type: integer }
+            nickname: { type: string }
+            realName: { type: [string, 'null'] }
+        tree:
+          type: object
+          properties:
+            id: { type: integer }
+            species: { type: string, example: 은행나무 }
+            district: { type: string, description: 위치한 자치구 }
+            dong: { type: [string, 'null'] }
+            roadName: { type: [string, 'null'], description: 노선 }
+            address: { type: [string, 'null'] }
+            caregiverCount: { type: integer, description: 지금 승인된 돌보미 수 }
   responses:
+    BadRequest:
+      description: 요청 값이 올바르지 않음
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Conflict:
+      description: "지금 상태에서는 할 수 없음 (예: 이미 심사한 신청서)"
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
       description: 로그인 필요 (토큰 없음·만료)
       content:
