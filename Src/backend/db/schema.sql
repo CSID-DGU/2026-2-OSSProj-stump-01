@@ -29,6 +29,38 @@ CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
 COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types and functions';
 
 
+--
+-- Name: assign_tree_codes(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.assign_tree_codes() RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    assigned integer;
+BEGIN
+    WITH last_seq AS (
+        SELECT district, COALESCE(MAX(split_part(code, '-', 2)::integer), 0) AS seq
+        FROM trees WHERE code IS NOT NULL GROUP BY district
+    ),
+    numbered AS (
+        SELECT t.id,
+               dc.code || '-' || lpad((COALESCE(ls.seq, 0) + row_number() OVER (
+                   PARTITION BY t.district
+                   ORDER BY t.road_name NULLS LAST, ST_X(t.location::geometry), ST_Y(t.location::geometry), t.id
+               ))::text, 5, '0') AS new_code
+        FROM trees t
+        JOIN district_codes dc ON dc.district = t.district
+        LEFT JOIN last_seq ls ON ls.district = t.district
+        WHERE t.code IS NULL
+    )
+    UPDATE trees SET code = numbered.new_code FROM numbered WHERE trees.id = numbered.id;
+    GET DIAGNOSTICS assigned = ROW_COUNT;
+    RETURN assigned;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -67,6 +99,16 @@ ALTER TABLE public.caregiver_applications ALTER COLUMN id ADD GENERATED ALWAYS A
     NO MINVALUE
     NO MAXVALUE
     CACHE 1
+);
+
+
+--
+-- Name: district_codes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.district_codes (
+    district text NOT NULL,
+    code character(5) NOT NULL
 );
 
 
@@ -456,8 +498,16 @@ CREATE TABLE public.trees (
     health_status text DEFAULT 'good'::text NOT NULL,
     status_updated_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    code text,
     CONSTRAINT trees_health_status_check CHECK ((health_status = ANY (ARRAY['good'::text, 'check'::text, 'urgent'::text])))
 );
+
+
+--
+-- Name: COLUMN trees.code; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.trees.code IS '관리번호. 자치구코드-순번. assign_tree_codes()가 채운다';
 
 
 --
@@ -582,6 +632,22 @@ CREATE TABLE public.weather (
 
 ALTER TABLE ONLY public.caregiver_applications
     ADD CONSTRAINT caregiver_applications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: district_codes district_codes_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.district_codes
+    ADD CONSTRAINT district_codes_code_key UNIQUE (code);
+
+
+--
+-- Name: district_codes district_codes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.district_codes
+    ADD CONSTRAINT district_codes_pkey PRIMARY KEY (district);
 
 
 --
@@ -742,6 +808,14 @@ ALTER TABLE ONLY public.story_reactions
 
 ALTER TABLE ONLY public.story_reactions
     ADD CONSTRAINT story_reactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: trees trees_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.trees
+    ADD CONSTRAINT trees_code_key UNIQUE (code);
 
 
 --
@@ -1171,4 +1245,5 @@ ALTER TABLE ONLY public.volunteer_hours
 INSERT INTO public.schema_migrations (version) VALUES
     ('20261020092817'),
     ('20261112120000'),
-    ('20261112180000');
+    ('20261112180000'),
+    ('20261112190000');
