@@ -9,6 +9,7 @@ import { getPool } from './common/db.js';
 import { errorHandler, routeNotFound } from './common/errors.js';
 import { districtRouter } from './district/index.js';
 import { volunteerHoursRouter } from './district/volunteer-hours.js';
+import { weatherRouter } from './district/weather.js';
 
 // openapi.yaml은 Src/backend에 있다. 빌드 결과(dist/app.js)에서 실행해도 같은 파일을 찾도록 한 단계 위를 본다.
 const here = dirname(fileURLToPath(import.meta.url));
@@ -32,6 +33,8 @@ export function createApp() {
   app.use('/admin', districtRouter);
   // 내 봉사시간(시민, 로그인 필요). 봉사시간 기록이 구청-BE 담당이라 district/에 있다.
   app.use('/volunteer-hours', volunteerHoursRouter);
+  // 오늘의 날씨(시민 홈, 로그인 없음). 날씨 수집이 구청-BE·데이터 담당이라 district/에 있다.
+  app.use('/weather', weatherRouter);
 
   app.use(routeNotFound);
   app.use(errorHandler);
