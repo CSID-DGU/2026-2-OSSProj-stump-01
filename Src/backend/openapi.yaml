@@ -525,6 +525,44 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /notifications:
+    get:
+      tags: [시민]
+      summary: 내 알림 (최신순)
+      description: 구청이 신청·보고서·물품을 처리하거나 신고를 조치 완료하면 생기는 알림. `unreadCount`는 limit과 상관없는 전체 안 읽은 개수다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+        - { name: unreadOnly, in: query, schema: { type: boolean, default: false } }
+      responses:
+        '200':
+          description: 알림 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+                  unreadCount: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/{id}/read:
+    patch:
+      tags: [시민]
+      summary: 알림 읽음 처리
+      description: 이미 읽은 알림은 처음 읽은 시각을 유지한다. 남의 알림은 404.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 읽음 처리된 알림
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Notification' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -668,6 +706,17 @@ components:
             address: { type: [string, 'null'] }
             sameRoadCount: { type: integer, description: 같은 자치구·노선의 나무 수 }
             sameDongCount: { type: integer, description: 같은 자치구·동의 나무 수 }
+    Notification:
+      type: object
+      properties:
+        id: { type: integer }
+        type: { type: string, enum: [application_result, monthly_report_result, rental_result, report_resolved, story_reaction] }
+        title: { type: string }
+        body: { type: string }
+        treeId: { type: [integer, 'null'] }
+        reportId: { type: [integer, 'null'] }
+        readAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
     Application:
       type: object
       properties:
