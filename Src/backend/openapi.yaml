@@ -428,6 +428,67 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /auth/signup:
+    post:
+      tags: [시민]
+      summary: 회원가입
+      description: 시민 계정을 만들고 토큰을 발급한다. 실명·연락처는 받지 않는다(돌보미 신청서에서 따로 받는다). 구청 담당자 계정은 운영자가 관리청과 함께 DB에서 만든다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, nickname]
+              properties:
+                email: { type: string, format: email, example: kth@example.com }
+                password: { type: string, minLength: 8, maxLength: 72, example: password123 }
+                nickname: { type: string, maxLength: 20, description: 활동 이름. 이야기·응답에 보인다, example: 태형 }
+      responses:
+        '201':
+          description: 가입 완료
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/login:
+    post:
+      tags: [시민]
+      summary: 로그인 (시민·구청 담당자 공통)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, example: kth@example.com }
+                password: { type: string, example: password123 }
+      responses:
+        '200':
+          description: 로그인 성공
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me:
+    get:
+      tags: [시민]
+      summary: 내 정보
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 사용자
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -534,6 +595,20 @@ components:
           properties:
             code: { type: string, example: NOT_FOUND }
             message: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        nickname: { type: string, description: 활동 이름 }
+        role: { type: string, enum: [citizen, officer] }
+        agency: { type: [string, 'null'], description: 구청 담당자의 소속 관리청 }
+        educationCompleted: { type: boolean, description: 돌보미 교육 이수 여부 }
+    AuthResponse:
+      type: object
+      properties:
+        token: { type: string, description: JWT. 7일 유효. Authorization Bearer 헤더에 넣는다 }
+        user: { $ref: '#/components/schemas/User' }
     Application:
       type: object
       properties:

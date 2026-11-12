@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import { parse } from 'yaml';
 import { getPool } from './common/db.js';
 import { errorHandler, routeNotFound } from './common/errors.js';
+import { authRouter } from './citizen/auth.js';
 import { districtRouter } from './district/index.js';
 import { volunteerHoursRouter } from './district/volunteer-hours.js';
 import { weatherRouter } from './district/weather.js';
@@ -29,7 +30,10 @@ export function createApp() {
   // API 명세(Swagger UI): http://localhost:4000/docs
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapi));
 
-  // 구청 모듈. 시민 모듈(citizen/)은 시민-BE가 같은 방식으로 붙인다.
+  // 시민 모듈
+  app.use('/auth', authRouter); // #3 회원·인증
+
+  // 구청 모듈
   app.use('/admin', districtRouter);
   // 내 봉사시간(시민, 로그인 필요). 봉사시간 기록이 구청-BE 담당이라 district/에 있다.
   app.use('/volunteer-hours', volunteerHoursRouter);
