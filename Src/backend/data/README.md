@@ -49,7 +49,21 @@ DB 적재(`--load`):
 - 비가 오지 않은 날은 응답의 일강수량이 빈 값이라 0으로 저장한다.
 - 일 최고기온 33℃ 이상이면 폭염(`is_heatwave`)으로 표시한다.
 - `--load`는 `(date, region)` 기준 upsert다. 기상청이 지난 값을 고치는 경우가 있어 같은 날짜는 새 값으로 덮어쓴다.
-- 기상청은 전날 자료까지만 준다. 매일 수집은 오늘의 날씨(#72)에서 이어서 정한다.
+- 기상청은 전날 자료까지만 준다. 그래서 오늘 날씨(홈 화면)는 API 서버가 단기예보·특보로 따로 받고(`GET /weather/today`, #72), 이 스크립트는 나이테용 일자료만 쌓는다.
+
+### 매일 수집 (#72)
+
+하루 한 번 최근 3일을 받아 넣는다. 기상청이 지난 값을 고치는 경우가 있어 하루만이 아니라 3일을 덮어쓴다.
+
+```bash
+.venv/bin/python weather.py --days 3 --out raw/weather_daily.csv --load
+```
+
+내 컴퓨터에서 매일 돌리려면 crontab에 등록한다(`crontab -e`, 매일 오전 9시). 배포 서버가 정해지면 서버의 스케줄러로 옮긴다.
+
+```
+0 9 * * * cd <저장소 경로>/Src/backend/data && .venv/bin/python weather.py --days 3 --out raw/weather_daily.csv --load >> raw/weather_daily.log 2>&1
+```
 
 ## 출처
 

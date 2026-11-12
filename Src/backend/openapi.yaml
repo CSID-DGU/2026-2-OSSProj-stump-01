@@ -463,6 +463,62 @@ paths:
                             lastDate: { type: string, format: date }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /weather/today:
+    get:
+      tags: [시민]
+      summary: 오늘의 날씨와 활동 추천 시간 (로그인 없음)
+      description: |
+        기상청 단기예보(오늘 02시 발표, 02:15 전에는 어제 23시 발표)와 기상특보 발효 현황(서울)으로 만든다.
+        - 일 최고기온 33℃ 이상이거나 폭염특보가 있으면 `isHeatwave: true`, 11~17시는 추천하지 않는다.
+        - 추천 시간: 06~20시 중 비가 오지 않고 강수확률 60% 미만, 기온 -5℃ 초과 31℃ 미만인 시각을 이어 붙인 시간대
+        - treeId를 주면 그 나무 위치(기상청 5km 격자), 없으면 서울시청 기준이다. 같은 격자는 30분 동안 캐시한다.
+      parameters:
+        - { name: treeId, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: 오늘 날씨 요약
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date: { type: string, format: date }
+                  tempMax: { type: [number, 'null'], description: 일 최고기온(℃) }
+                  tempMin: { type: [number, 'null'], description: 일 최저기온(℃) }
+                  isHeatwave: { type: boolean }
+                  warnings: { type: array, items: { type: string }, example: [폭염경보] }
+                  recommendedTimes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        start: { type: string, example: '06:00' }
+                        end: { type: string, example: '09:00' }
+                  message: { type: string, description: 홈 화면 안내 문구 }
+                  hourly:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        hour: { type: integer }
+                        temp: { type: [number, 'null'] }
+                        pop: { type: [number, 'null'], description: 강수확률(%) }
+                        precipitationType: { type: integer, description: '0 없음, 1 비, 2 비/눈, 3 눈, 4 소나기' }
+                        sky: { type: [integer, 'null'], description: '1 맑음, 3 구름많음, 4 흐림' }
+                  location:
+                    type: object
+                    properties:
+                      treeId: { type: [integer, 'null'] }
+                      nx: { type: integer }
+                      ny: { type: integer }
+                  forecastBase: { type: string, example: 20261112 0200, description: 사용한 단기예보 발표 시각 }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '503':
+          description: 기상청 정보를 가져오지 못함 (키 미설정·활용 신청 전·기상청 장애)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
 components:
   securitySchemes:
     bearerAuth:
