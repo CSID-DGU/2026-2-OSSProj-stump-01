@@ -1,38 +1,45 @@
-# ERD (초안)
+# ERD
 
-> 이슈 #17. 2026-10-22까지 이의가 없으면 확정한다. 확정되면 이 문서를 기준으로 마이그레이션을 만든다.
-> DB는 PostgreSQL + PostGIS 기준이다(#52에서 확정 대기).
+> 이슈 #17(초기 스키마), #67(나무돌보미 연계 개정). 기준은 중간보고서 붙임 2 "전체 ERD 개정안"이다.
+> DB는 PostgreSQL 17 + PostGIS다.
 > 실제 컬럼 타입·제약조건은 `migrations/`가 기준이다. 이 다이어그램의 타입(`varchar` 등)은 개념용이고, 실제로는 `text`를 쓴다. 현재 DB 전체 구조는 `schema.sql`에서 볼 수 있다.
 
-수행계획서의 엔티티 9개(Tree, User, Adoption, Story, Record, Report, Weather, Fund, Notification)를 테이블로 옮겼다.
-이야기의 "덧붙인 글 목록"은 여러 개라서 `story_entries` 테이블 하나를 더 두었다.
+2026-10-29 주제를 바꾸면서(유료 입양 TreeMate → 나무돌보미 연계 TreeCare) `20261112120000_treecare_revision.sql`로 다음을 바꿨다.
+
+- 삭제: `adoptions`(입양), `fund_transactions`(관리기금), `trees.water_need`(물 필요도), 물주기·관찰 기록
+- 변경: `adoptions` → `caregiver_applications`(나무당 1명 제약 없음), `records.type`은 `activity`·`report`, `stories`는 나무 기준 공동 이야기, `story_entries`에 글쓴 돌보미
+- 추가: `monthly_reports`, `volunteer_hours`, `rental_items`, `rentals`, `user_badges`, `organizations`, `organization_members`, `story_reactions`
 
 ## 다이어그램
 
 ```mermaid
 erDiagram
-    users ||--o{ adoptions : "입양한다"
+    users ||--o{ caregiver_applications : "신청한다"
     users ||--o{ records : "기록한다"
+    users ||--o{ monthly_reports : "제출한다"
+    users ||--o{ volunteer_hours : "인정받는다"
+    users ||--o{ rentals : "받는다"
+    users ||--o{ user_badges : "받는다"
+    users ||--o{ organization_members : "가입한다"
+    users ||--o{ story_entries : "덧붙인다"
     users ||--o{ notifications : "받는다"
-    users ||--o{ reports : "처리한다(구청)"
-    users ||--o{ fund_transactions : "집행 등록(구청)"
-    trees ||--o{ adoptions : "입양된다"
+    trees ||--o{ caregiver_applications : "돌봄 대상"
     trees ||--o{ records : "기록된다"
-    trees ||--o{ fund_transactions : "집행 대상"
-    trees ||--o{ notifications : "관련 나무"
-    adoptions ||--o| stories : "이야기"
+    trees ||--o| stories : "공동 이야기"
     stories ||--o{ story_entries : "덧붙인 글"
-    adoptions ||--o{ fund_transactions : "적립"
+    story_entries ||--o{ story_reactions : "받은 호응"
+    monthly_reports ||--o{ records : "모은다"
+    monthly_reports ||--o| volunteer_hours : "승인 시 기록"
     records ||--o| reports : "신고 상세"
-    reports ||--o{ notifications : "조치 완료 알림"
-    fund_transactions ||--o{ notifications : "기금 사용 알림"
+    rental_items ||--o{ rentals : "지급한다"
+    organizations ||--o{ organization_members : "소속"
 
     users {
         bigint id PK
         varchar email UK
         varchar password_hash
         varchar nickname
-        varchar real_name "실명(이야기 실명 공개용)"
+        varchar real_name "이야기 실명 공개용"
         varchar role "citizen | officer"
         varchar agency "구청 담당자의 소속 관리청"
         timestamptz education_completed_at "교육 이수 시각, null=미이수"
@@ -44,48 +51,27 @@ erDiagram
         varchar source_key UK "관리청|경도|위도, 원본에 관리번호가 없음"
         varchar species "수종"
         geography location "Point, WGS84"
-        varchar agency "관리청, 신고 배정 기준"
+        varchar agency "관리청: 신청·보고서·신고 배정 기준"
         varchar district "위치한 자치구"
         varchar dong "위치한 법정동"
         varchar road_name "노선"
         varchar address "지번 주소"
-        varchar water_need "enough | normal | thirsty"
         varchar health_status "good | check | urgent"
-        timestamptz status_updated_at "상태 계산 엔진이 마지막으로 쓴 시각"
+        timestamptz status_updated_at
         timestamptz created_at
     }
 
-    adoptions {
+    caregiver_applications {
         bigint id PK
-        bigint tree_id FK
         bigint user_id FK
-        varchar status "active | completed | cancelled"
-        date start_date
-        date end_date
-        int paid_amount "모의 결제 금액"
-        int discount_amount "관찰 공백 할인(#26)"
-        varchar plaque_status "none | requested | issued"
-        varchar sbt_status "none | issued"
-        timestamptz created_at
-    }
-
-    stories {
-        bigint id PK
-        bigint adoption_id FK,UK
-        varchar tree_name "나무에 붙인 이름"
-        text body "사연"
-        varchar photo_url "대표 사진"
-        boolean is_public
-        varchar author_display "real_name | nickname"
-        timestamptz created_at
-        timestamptz updated_at
-    }
-
-    story_entries {
-        bigint id PK
-        bigint story_id FK
-        text body
-        varchar photo_url
+        bigint tree_id FK
+        varchar status "pending | approved | rejected | ended"
+        date period_start "활동 기간"
+        date period_end
+        text motivation "참여 동기"
+        text reject_reason "반려 사유"
+        bigint reviewed_by FK "심사한 구청 담당자"
+        timestamptz reviewed_at
         timestamptz created_at
     }
 
@@ -93,14 +79,38 @@ erDiagram
         bigint id PK
         bigint tree_id FK
         bigint user_id FK
-        varchar type "water | observe | report"
+        varchar type "activity | report"
         timestamptz recorded_at
-        int water_amount_ml "물주기만"
-        jsonb checklist "관찰만"
+        date activity_date "활동한 날"
+        varchar activity_kind "활동 선택 항목"
+        int duration_min "활동 시간(분)"
+        text memo
         varchar photo_url
         geography location "기록한 위치, Point"
         varchar verification "none | location | photo"
+        bigint monthly_report_id FK "제출되면 채움"
         timestamptz created_at
+    }
+
+    monthly_reports {
+        bigint id PK
+        bigint user_id FK
+        varchar agency "제출할 관리청"
+        varchar status "submitted | approved | revision_requested"
+        int total_minutes "고른 기록의 활동 시간 합계"
+        text review_note "보완 요청 사유"
+        bigint reviewed_by FK
+        timestamptz reviewed_at
+        timestamptz submitted_at
+    }
+
+    volunteer_hours {
+        bigint id PK
+        bigint user_id FK
+        bigint monthly_report_id FK,UK "중복 인정 방지"
+        int minutes
+        bigint recorded_by FK "승인한 구청 담당자"
+        timestamptz recorded_at
     }
 
     reports {
@@ -119,35 +129,94 @@ erDiagram
         timestamptz created_at
     }
 
+    rental_items {
+        bigint id PK
+        varchar agency "보유 관리청"
+        varchar name "예: 쿨토시, 집게"
+        int stock "재고"
+        timestamptz created_at
+    }
+
+    rentals {
+        bigint id PK
+        bigint item_id FK
+        bigint user_id FK
+        int quantity
+        varchar status "requested | approved | rejected | received"
+        bigint handled_by FK "승인·반려한 구청 담당자"
+        timestamptz handled_at
+        timestamptz received_at
+        timestamptz created_at
+    }
+
+    stories {
+        bigint id PK
+        bigint tree_id FK,UK "나무별 공동 이야기"
+        varchar tree_name "나무에 붙인 이름"
+        text body
+        varchar photo_url "대표 사진"
+        boolean is_public
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    story_entries {
+        bigint id PK
+        bigint story_id FK
+        bigint user_id FK "덧붙인 돌보미"
+        varchar author_display "real_name | nickname"
+        text body
+        varchar photo_url
+        timestamptz created_at
+    }
+
+    story_reactions {
+        bigint id PK
+        bigint story_entry_id FK
+        varchar kind "like | reply"
+        varchar body "한 줄 응답, 80자"
+        varchar device_key "로그인 없이 기기 구분"
+        date reacted_on "하루 한 번 제약용, 한국 날짜"
+        timestamptz created_at
+    }
+
+    user_badges {
+        bigint id PK
+        bigint user_id FK
+        varchar badge_code "예: 우리 동네 나무돌보미"
+        timestamptz earned_at
+    }
+
+    organizations {
+        bigint id PK
+        varchar name "단체 이름"
+        varchar invite_code UK "초대 코드"
+        timestamptz created_at
+    }
+
+    organization_members {
+        bigint id PK
+        bigint organization_id FK
+        bigint user_id FK
+        varchar role "admin | member"
+        timestamptz joined_at
+    }
+
     weather {
         date date PK
-        varchar region PK "자치구 또는 seoul"
+        varchar region PK "seoul"
         numeric precipitation_mm
         numeric temp_avg
         numeric temp_max
         boolean is_heatwave
     }
 
-    fund_transactions {
-        bigint id PK
-        varchar kind "deposit | expense"
-        varchar category "plaque | tree | common"
-        int amount
-        bigint adoption_id FK "적립일 때"
-        bigint target_tree_id FK "나무 집행일 때"
-        varchar target_district "공동 집행 지역"
-        text description "집행 내역"
-        bigint created_by FK "집행 등록한 구청 담당자"
-        timestamptz created_at
-    }
-
     notifications {
         bigint id PK
         bigint user_id FK "수신자"
-        varchar type "report_resolved | fund_used"
+        varchar type "아래 상태값 참고"
         bigint tree_id FK
         bigint report_id FK
-        bigint fund_transaction_id FK
         varchar title
         text body
         timestamptz read_at
@@ -161,31 +230,45 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 
 | 컬럼 | 코드 | 화면 표시 |
 |---|---|---|
+| `caregiver_applications.status` | `pending` / `approved` / `rejected` / `ended` | 대기 / 승인 / 반려 / 종료 |
+| `monthly_reports.status` | `submitted` / `approved` / `revision_requested` | 검토 대기 / 승인 / 보완 요청 |
+| `rentals.status` | `requested` / `approved` / `rejected` / `received` | 신청 / 승인 / 반려 / 수령 |
 | `reports.status` | `pending` / `inspecting` / `resolved` | 확인 필요 / 현장 확인 / 조치 완료 |
-| `trees.water_need` | `enough` / `normal` / `thirsty` | 충분 / 보통 / 목마름 |
+| `records.type` | `activity` / `report` | 활동 기록 / 이상 신고 |
+| `story_reactions.kind` | `like` / `reply` | 좋아요 / 한 줄 응답 |
+| `organization_members.role` | `admin` / `member` | 단체 관리자 / 회원 |
+| `notifications.type` | `application_result` / `monthly_report_result` / `rental_result` / `report_resolved` / `story_reaction` | 신청 결과 / 보고서 결과 / 물품 결과 / 조치 완료 / 받은 호응 |
 | `trees.health_status` | `good` / `check` / `urgent` | 양호 / 확인 필요 / 긴급 |
-| `records.type` | `water` / `observe` / `report` | 물주기 / 관찰 / 이상 신고 |
-| `fund_transactions.category` | `plaque` / `tree` / `common` | 명판 / 해당 나무 / 공동 기금 |
 | `users.role` | `citizen` / `officer` | 시민 / 구청 담당자 |
 
-신고 상태는 `pending → inspecting → resolved` 순서로만 바뀐다. 되돌리기는 두지 않는다.
+- 신고 상태는 `pending → inspecting → resolved` 순서로만 바뀐다. 되돌리기는 두지 않는다.
+- 보고서는 `submitted → approved` 또는 `submitted → revision_requested → (다시 제출) submitted`로 바뀐다.
+- 물품은 `requested → approved → received` 또는 `requested → rejected`로 끝난다. 반납 상태는 없다.
 
 ## 설계 결정
 
-- **저장하지 않고 계산하는 값**: 수행계획서에는 있지만 다른 테이블에서 바로 구할 수 있어서 컬럼으로 두지 않았다. 컬럼으로 두면 원본과 값이 어긋날 수 있다.
-  - 나무의 입양 여부: `adoptions`에 `status = 'active'`인 행이 있는지로 판단한다.
-  - 입양의 관찰 횟수(#11): 입양 기간 동안 입양자가 남긴 `records`(`type = 'observe'`) 수를 센다.
-  - 나이테 조치 표식(#21): `reports.resolved_at`으로 월별 집계한다. 별도 테이블을 두지 않는다.
-- **나무당 입양자 1명**: `adoptions(tree_id)`에 `status = 'active'` 조건의 부분 유니크 인덱스를 건다.
-- **기록과 신고**: 신고도 기록 3종 중 하나라서 `records`에 공통 정보(나무·작성자·사진·위치)를 두고, 신고에만 있는 처리 정보는 `reports`에 1:1로 둔다. 시민-BE는 두 행을 함께 만들고, 구청-BE는 `reports`의 처리 컬럼만 바꾼다.
-  - `reports`는 `(record_id, record_type)`으로 `records(id, type)`를 참조하고 `record_type`은 항상 `report`다. 그래서 물주기·관찰 기록에 신고가 잘못 붙는 것을 DB가 막는다.
-- **상태 전이**: `reports`는 `inspected_at` 없이 `inspecting`/`resolved`가 될 수 없고, `resolved`일 때만 `resolved_at`이 있다. 현장 확인을 건너뛴 조치 완료를 DB가 막는다.
+- **돌봄 관계는 다대다**: 한 명이 여러 그루, 한 그루에 여러 명이 돌본다. 그래서 `caregiver_applications`에는 나무당 1명 제약이 없다. 대신 같은 사람이 같은 나무에 대기·승인 중인 신청을 둘 갖지 못하게 `(user_id, tree_id)`에 `status IN ('pending', 'approved')` 부분 유니크 인덱스를 건다. 반려·종료 뒤 재신청은 된다.
+- **저장하지 않고 계산하는 값**: 다른 테이블에서 바로 구할 수 있어서 컬럼으로 두지 않았다. 컬럼으로 두면 원본과 값이 어긋날 수 있다.
+  - 나무의 돌보미 여부·돌보미 수: `caregiver_applications`에서 `status = 'approved'`인 행으로 판단한다.
+  - 스탬프 수: `records`(`type = 'activity'`) 수를 센다. 5·10회가 되면 `user_badges` 행을 만든다.
+  - 나이테 조치 표식: `reports.resolved_at`으로 월별 집계한다.
+- **보고서와 기록**: 보고서를 제출하면 고른 날짜의 활동 기록에 `monthly_report_id`를 채운다. 보고서 작성 화면은 `monthly_report_id IS NULL`인 기록이 있는 날짜만 보여 주므로, 이미 제출한 날짜는 다시 고를 수 없다.
+  - `records (monthly_report_id, user_id)`가 `monthly_reports (id, user_id)`를 참조해서 남의 보고서에 기록이 묶이는 것을 DB가 막는다. `volunteer_hours`도 같은 방식이다.
+  - 이상 신고(`type = 'report'`)는 보고서에 묶이지 않는다(CHECK).
+  - `monthly_reports.agency`는 구청 검토 대기 목록의 기준이다. 보고서 하나는 한 관리청에 낸다. 시민-BE는 묶인 기록의 나무 `agency`로 채운다.
+- **봉사시간 중복 방지**: `volunteer_hours.monthly_report_id`에 유니크 제약을 걸어 같은 보고서가 두 번 인정되는 것을 DB에서 막는다. 구청-BE는 보고서 승인(`status = 'approved'`), 봉사시간 행 생성, 알림 생성을 한 트랜잭션으로 묶는다.
+- **기록과 신고**: 신고도 기록의 한 종류라서 `records`에 공통 정보(나무·작성자·사진·위치)를 두고, 신고에만 있는 처리 정보는 `reports`에 1:1로 둔다. 시민-BE는 두 행을 함께 만들고, 구청-BE는 `reports`의 처리 컬럼만 바꾼다.
+  - `reports`는 `(record_id, record_type)`으로 `records(id, type)`를 참조하고 `record_type`은 항상 `report`다. 그래서 활동 기록에 신고가 잘못 붙는 것을 DB가 막는다.
+- **상태 전이**: `reports`는 `inspected_at` 없이 `inspecting`/`resolved`가 될 수 없고, `resolved`일 때만 `resolved_at`이 있다. 신청서·보고서·물품도 승인·반려 상태면 처리한 담당자와 시각이 있어야 하고, 반려는 사유, 보완 요청은 의견이 있어야 한다.
 - **신뢰도**: `is_trusted`는 신고할 때의 교육 이수 여부를 복사해 둔다. 나중에 이수하더라도 그전 신고의 신뢰도는 바뀌지 않는다.
-- **기금**: 적립과 집행을 `fund_transactions` 한 테이블에 `kind`로 나누어 쌓는다. 잔액은 합계로 계산한다.
-- **위치**: `geography(Point, 4326)`을 쓴다. 위치 확인 거리(#13)는 `ST_DWithin`, 지도 범위 조회(#4)는 공간 인덱스(GiST)로 처리한다.
+- **물품 재고**: `rental_items.stock`은 0 아래로 내려갈 수 없다(CHECK). 구청-BE는 수령 처리 때 재고를 줄이는 것과 `rentals` 상태 변경을 한 트랜잭션으로 묶는다.
+- **공동 이야기**: 이야기는 나무당 하나(`stories.tree_id` 유니크)이고, 여러 돌보미가 `story_entries`로 글을 덧붙인다. 실명/별명 선택(`author_display`)은 글마다 글쓴 돌보미가 한다.
+- **받은 호응**: 로그인 없이 남기므로 `device_key`로 기기를 구분한다. 같은 기기는 글 하나에 하루 한 번만 남길 수 있게 `(story_entry_id, device_key, reacted_on)`에 유니크 제약을 건다. `reacted_on`은 한국 날짜 기준이다. 한 줄 응답은 80자까지다.
+- **단체 관리자**: `users.role`이 아니라 `organization_members.role = 'admin'`으로 판단한다. 단체 관리자도 자기 나무를 돌보는 돌보미다.
+- **위치**: `geography(Point, 4326)`을 쓴다. 위치 확인 거리는 `ST_DWithin`, 지도 범위 조회는 공간 인덱스(GiST)로 처리한다.
 - **관리청과 위치를 나눈다**: 가로수 데이터의 관리 주체(관리청)는 나무가 서 있는 자치구와 다를 수 있다(아래 "가로수 원본 데이터" 참고).
-  - `agency`(관리청): 신고 배정(#20)과 구청 담당자 권한의 기준. 25개 자치구 + `서울시설공단` + `중부공원여가센터`.
-  - `district`, `dong`(위치): 드릴다운(#24), 지도 필터, 공동 기금 집행 지역의 기준.
+  - `agency`(관리청): 신청 심사·보고서 검토·물품·신고 배정과 구청 담당자 권한의 기준. 25개 자치구 + `서울시설공단` + `중부공원여가센터`.
+  - `district`, `dong`(위치): 지도 필터와 동·노선 집계의 기준.
   - 둘 다 별도 테이블 없이 문자열로 둔다.
 
 ## 가로수 원본 데이터 (#18)
@@ -205,13 +288,17 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 
 | 테이블 | 쓰는 쪽 | 비고 |
 |---|---|---|
+| `caregiver_applications` | 생성: 시민-BE / 심사(상태·반려 사유·심사자): 구청-BE | |
+| `records`, `monthly_reports` | 작성·제출: 시민-BE / 보고서 검토(상태·의견·검토자): 구청-BE | |
+| `volunteer_hours` | 구청-BE | 보고서 승인과 한 트랜잭션 |
+| `rental_items` | 구청-BE | 재고 관리 |
+| `rentals` | 생성: 시민-BE / 승인·반려·수령: 구청-BE | |
 | `reports` | 생성: 시민-BE / 상태·조치 컬럼: 구청-BE | |
-| `trees.water_need`, `trees.health_status` | 상태 계산 엔진만 | 나머지는 읽기만 |
 | `notifications` | 시민-BE 알림 모듈 | 구청-BE는 알림 생성 함수만 호출 |
-| `fund_transactions` | `deposit`: 시민-BE(입양) / `expense`: 구청-BE | |
-| `trees` 나머지 컬럼, `weather` | 공공데이터 적재 스크립트 | |
+| `stories`, `story_entries`, `story_reactions`, `user_badges`, `organizations`, `organization_members` | 시민-BE | 구청-BE는 읽기만(단체별 필터) |
+| `trees`, `weather` | 공공데이터 적재 스크립트 | |
 
-## 기본값 (2026-10-22까지 이의가 없으면 확정)
+## 기본값
 
 ### 신고 유형과 긴급도
 
@@ -225,23 +312,8 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 | `withering` | 시듦·고사 의심 | `low` |
 | `other` | 기타 | `low` |
 
-### 관찰 체크리스트
-
-`records.checklist`는 항목별로 이상이 있으면 `true`인 JSON이다. 교육 콘텐츠(#34)가 정해지면 항목을 맞춘다.
-
-```json
-{ "leaf": false, "trunk_branch": true, "dry_soil": false, "trash": false }
-```
-
-| 키 | 화면 표시 |
-|---|---|
-| `leaf` | 잎 상태 이상(변색·마름) |
-| `trunk_branch` | 줄기·가지 손상 |
-| `dry_soil` | 흙이 말라 있음 |
-| `trash` | 주변 쓰레기 |
-
 ### 그 밖의 기본값
 
-- 공동 기금 집행 알림은 `target_district` 자치구의 현재 입양자(`adoptions.status = 'active'`)에게 보낸다. 나무 기금 집행 알림은 그 나무의 현재 입양자에게 보낸다.
+- 신청서 항목(`motivation` 외), 활동 선택 항목(`records.activity_kind`의 값), 배지 코드는 구청 양식 확인(#59) 후 설정 파일로 정한다. DB에는 CHECK를 걸지 않는다.
 - 기상 데이터는 서울 관측소 1곳(`region = 'seoul'`)으로 시작한다. 자치구별 값이 필요하면 방재기상관측(AWS) 자료를 따로 검토한다.
-- 이 ERD에 넣지 않은 기능(교육·퀴즈 응시 기록 #10, 배지 #15, 타임캡슐 #16)은 담당자가 테이블을 추가할 때 이 문서에 이어서 적는다.
+- 이 ERD에 넣지 않은 기능(교육·퀴즈 응시 기록, 타임캡슐)은 담당자가 테이블을 추가할 때 이 문서에 이어서 적는다.
