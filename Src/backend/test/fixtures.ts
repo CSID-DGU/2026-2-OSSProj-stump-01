@@ -99,3 +99,22 @@ export async function createMonthlyReport(opts: {
   }
   return reportId;
 }
+
+export async function createRentalItem(opts: { agency?: string; name?: string; stock?: number } = {}) {
+  seq += 1;
+  const { rows } = await getPool().query<{ id: number }>(
+    'INSERT INTO rental_items (agency, name, stock) VALUES ($1, $2, $3) RETURNING id',
+    [opts.agency ?? '중구', opts.name ?? `물품${seq}`, opts.stock ?? 10],
+  );
+  return rows[0]!.id;
+}
+
+/** 승인 대기(requested) 물품 신청을 만든다(시민-BE가 하는 일을 흉내 낸다). */
+export async function createRental(opts: { itemId: number; userId: number; quantity?: number; createdAt?: string }) {
+  const { rows } = await getPool().query<{ id: number }>(
+    `INSERT INTO rentals (item_id, user_id, quantity, created_at)
+     VALUES ($1, $2, $3, COALESCE($4::timestamptz, now())) RETURNING id`,
+    [opts.itemId, opts.userId, opts.quantity ?? 1, opts.createdAt ?? null],
+  );
+  return rows[0]!.id;
+}
