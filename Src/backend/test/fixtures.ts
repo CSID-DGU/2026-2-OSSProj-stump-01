@@ -118,3 +118,28 @@ export async function createRental(opts: { itemId: number; userId: number; quant
   );
   return rows[0]!.id;
 }
+
+/** 이상 신고(records type=report + reports)를 만든다(시민-BE가 하는 일을 흉내 낸다). */
+export async function createIncident(opts: {
+  userId: number;
+  treeId: number;
+  agency?: string;
+  category?: string;
+  urgency?: 'low' | 'high';
+  createdAt?: string;
+}) {
+  const pool = getPool();
+  const createdAt = opts.createdAt ?? new Date().toISOString();
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO records (tree_id, user_id, type, photo_url, location, recorded_at)
+     VALUES ($1, $2, 'report', 'https://example.com/report.jpg',
+             ST_SetSRID(ST_MakePoint(126.9701, 37.5601), 4326)::geography, $3)
+     RETURNING id`,
+    [opts.treeId, opts.userId, createdAt],
+  );
+  const { rows: rep } = await pool.query<{ id: number }>(
+    `INSERT INTO reports (record_id, category, urgency, agency, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    [rows[0]!.id, opts.category ?? 'pest', opts.urgency ?? 'low', opts.agency ?? '중구', createdAt],
+  );
+  return rep[0]!.id;
+}
