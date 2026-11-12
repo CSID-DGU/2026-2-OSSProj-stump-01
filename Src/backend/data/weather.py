@@ -3,6 +3,7 @@
 실행 (Src/backend/data 폴더에서):
     python weather.py --load                            # 어제까지 최근 365일 수집 + DB 적재
     python weather.py --start 2025-01-01 --end 2025-12-31 --load
+    python weather.py --days 3 --out raw/weather_daily.csv --load   # 매일 수집: 최근 3일(기상청이 값을 고치는 경우 대비)
     python weather.py                                   # 수집만
 
 인증키는 Src/.env의 KMA_SERVICE_KEY(일반 인증키 Decoding 값)를 읽는다.
@@ -69,10 +70,12 @@ def to_weather(item: dict) -> Weather:
     )
 
 
-def default_range(today: date) -> tuple[date, date]:
-    """어제까지 최근 DEFAULT_DAYS일. 기상청은 전날 자료까지만 준다."""
+def default_range(today: date, days: int = DEFAULT_DAYS) -> tuple[date, date]:
+    """어제까지 최근 days일. 기상청은 전날 자료까지만 준다."""
+    if days < 1:
+        raise ValueError("days는 1 이상이다")
     end = today - timedelta(days=1)
-    return end - timedelta(days=DEFAULT_DAYS - 1), end
+    return end - timedelta(days=days - 1), end
 
 
 # ── 입출력 ──
@@ -130,13 +133,16 @@ def load(csv_path: Path = WEATHER_CSV) -> tuple[int, int]:
 
 
 def main(argv: Optional[list] = None) -> int:
-    start, end = default_range(date.today())
     parser = argparse.ArgumentParser(description="기상청 ASOS 일자료 수집")
-    parser.add_argument("--start", type=date.fromisoformat, default=start, help="YYYY-MM-DD")
-    parser.add_argument("--end", type=date.fromisoformat, default=end, help="YYYY-MM-DD, 어제까지")
+    parser.add_argument("--days", type=int, default=DEFAULT_DAYS, help=f"어제까지 최근 며칠을 받을지 (기본 {DEFAULT_DAYS}). 매일 수집은 --days 3")
+    parser.add_argument("--start", type=date.fromisoformat, help="YYYY-MM-DD (주면 --days 대신 이 기간)")
+    parser.add_argument("--end", type=date.fromisoformat, help="YYYY-MM-DD, 어제까지")
     parser.add_argument("--out", type=Path, default=WEATHER_CSV)
     parser.add_argument("--load", action="store_true", help="수집한 결과를 DB weather 테이블에 넣는다")
     args = parser.parse_args(argv)
+    start, end = default_range(date.today(), args.days)
+    args.start = args.start or start
+    args.end = args.end or end
 
     rows = [to_weather(item) for item in fetch(require_env("KMA_SERVICE_KEY"), args.start, args.end)]
     args.out.parent.mkdir(parents=True, exist_ok=True)
