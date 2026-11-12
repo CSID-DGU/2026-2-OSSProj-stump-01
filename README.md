@@ -44,22 +44,22 @@ TreeCare는 이 행정 절차를 시민 웹과 구청 웹으로 옮기고, 나�
 | 구분 | 내용 |
 |---|---|
 | Frontend | React (시민 모바일 웹 PWA · 구청 웹), 지도 API(카카오맵 또는 네이버 지도, 결정 대기), D3.js |
-| Backend | REST API(JSON), Swagger(OpenAPI) 명세. 프레임워크(Node.js 또는 Spring Boot) 결정 대기 |
+| Backend | Node.js + TypeScript, Express 5, REST API(JSON), Swagger(OpenAPI) 명세, pg(SQL 직접 작성), zod, JWT, Vitest |
 | Database | PostgreSQL 17 + PostGIS (Docker Compose), dbmate 마이그레이션 |
 | 데이터 수집 | Python 3 (가로수·기상청 수집 스크립트) |
 | 외부 데이터 | 서울시 가로수 위치 정보(OA-22904), 기상청 ASOS 일자료, 기상청 단기예보·특보(예정) |
 | 협업 도구 | GitHub, Figma, Notion, Slack, Claude Code |
 
-기술 스택 결정은 [#52](https://github.com/CSID-DGU/2026-2-OSSProj-stump-01/issues/52)에서 진행합니다.
+기술 스택 결정은 [#52](https://github.com/CSID-DGU/2026-2-OSSProj-stump-01/issues/52)에 정리합니다. 프론트 지도 API는 결정 대기입니다.
 
 ## ⚙️ 설치 및 실행 방법
-현재는 로컬 DB와 공공데이터 수집 스크립트까지 있습니다. 백엔드·프론트 실행 방법은 개발 진행에 따라 추가합니다.
+현재는 로컬 DB, 공공데이터 수집 스크립트, API 서버가 있습니다. 프론트 실행 방법은 개발 진행에 따라 추가합니다.
 
-- 로컬 DB(PostgreSQL + PostGIS) 실행과 마이그레이션: [`Src/README.md`](./Src/README.md)
+- 로컬 DB(PostgreSQL + PostGIS) 실행과 마이그레이션, API 서버 실행: [`Src/README.md`](./Src/README.md)
 - 가로수·기상청 데이터 수집: [`Src/backend/data/README.md`](./Src/backend/data/README.md)
 
 ## 📂 폴더 구조
-- `Src/` : 프로젝트 소스코드 (`backend/db` DB 설정·마이그레이션·ERD, `backend/data` 공공데이터 수집)
+- `Src/` : 프로젝트 소스코드 (`backend` API 서버, `backend/db` DB 설정·마이그레이션·ERD, `backend/data` 공공데이터 수집)
 - `Doc/` : 프로젝트 문서
 
 ## 📄 프로젝트 문서
