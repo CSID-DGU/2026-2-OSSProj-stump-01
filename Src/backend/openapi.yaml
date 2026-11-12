@@ -1,0 +1,64 @@
+# 서울 TreeCare API 명세 (OpenAPI 3.1)
+# 서버를 켜고 http://localhost:4000/docs 에서 본다.
+# API를 추가·변경하면 이 파일도 같이 고친다(CLAUDE.md 작업 방식).
+openapi: 3.1.0
+info:
+  title: 서울 TreeCare API
+  version: 0.1.0
+  description: |
+    시민 모바일 웹과 구청 웹이 함께 쓰는 API 서버.
+    - 구청 전용 경로는 `/admin` 아래에 있고, 구청 담당자 토큰이 필요하다. 담당자 소속 관리청의 데이터만 다룬다.
+    - 에러 응답은 `{ "error": { "code": "...", "message": "..." } }` 형식이다.
+servers:
+  - url: http://localhost:4000
+
+tags:
+  - name: 공통
+  - name: 구청
+
+paths:
+  /health:
+    get:
+      tags: [공통]
+      summary: 서버·DB 상태 확인
+      responses:
+        '200':
+          description: 정상
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: NOT_FOUND }
+            message: { type: string }
+  responses:
+    Unauthorized:
+      description: 로그인 필요 (토큰 없음·만료)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: 권한 없음 (구청 담당자가 아님)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: 대상 없음 (다른 관리청의 데이터도 404로 돌려준다)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

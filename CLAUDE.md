@@ -43,13 +43,14 @@
 - DB: PostgreSQL 17 + PostGIS (Docker Compose), 마이그레이션은 dbmate(SQL 파일)
 - 공공데이터 수집: Python 3 스크립트, 테스트는 unittest
 - 외부 데이터: 서울 열린데이터광장 가로수 위치 정보(OA-22904), 기상청 ASOS 일자료(서울 108 지점)
-- 백엔드: REST API(JSON), 서버 하나에 모듈 분리, API 명세는 Swagger(OpenAPI)
+- 백엔드: Node.js(22 이상) + TypeScript, Express 5, REST API(JSON), 서버 하나에 모듈 분리, API 명세는 Swagger(OpenAPI, `Src/backend/openapi.yaml`)
+  - DB 접근: `pg`로 SQL을 직접 쓴다(ORM 없음). 스키마는 dbmate 마이그레이션이 기준이다.
+  - 요청 검증: `zod`, 인증: JWT(`jsonwebtoken`), 테스트: Vitest + Supertest(테스트 전용 DB `treecare_test`)
 - 시민 웹: 모바일 웹(PWA). 네이티브 앱은 만들지 않는다.
 - 나이테: D3.js
 
 결정 대기:
 
-- 백엔드 프레임워크: Node.js(TypeScript) 또는 Spring Boot
 - 프론트: React (시민 웹·구청 웹)
 - 지도 API: 카카오맵 또는 네이버 지도
 - 기상청 단기예보·특보 API (오늘의 날씨)
@@ -60,7 +61,8 @@
 
 - 로컬 DB 실행·마이그레이션: `Src/README.md` (`docker compose up -d`, `docker compose run --rm dbmate up`)
 - 공공데이터 수집·테스트: `Src/backend/data/README.md`
-- 개발 서버·빌드·린트는 백엔드·프론트 스택 확정 후 채운다.
+- API 서버(`Src/backend`): `npm install`, `npm run dev`(개발 서버, http://localhost:4000, 명세 /docs), `npm test`(DB가 떠 있어야 함), `npm run typecheck`, `npm run build`
+- 프론트 개발 서버·빌드·린트는 프론트 스택 확정 후 채운다.
 
 커밋 전에 테스트(있으면 린트와 빌드)가 통과하는지 확인한다.
 
