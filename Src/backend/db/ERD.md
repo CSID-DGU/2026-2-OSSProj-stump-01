@@ -133,7 +133,7 @@ erDiagram
         bigint id PK
         varchar agency "보유 관리청"
         varchar name "예: 쿨토시, 집게"
-        int stock "재고"
+        int stock "아직 배정하지 않은 재고"
         timestamptz created_at
     }
 
@@ -143,6 +143,7 @@ erDiagram
         bigint user_id FK
         int quantity
         varchar status "requested | approved | rejected | received"
+        text reject_reason "반려 사유(선택)"
         bigint handled_by FK "승인·반려한 구청 담당자"
         timestamptz handled_at
         timestamptz received_at
@@ -261,7 +262,7 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
   - `reports`는 `(record_id, record_type)`으로 `records(id, type)`를 참조하고 `record_type`은 항상 `report`다. 그래서 활동 기록에 신고가 잘못 붙는 것을 DB가 막는다.
 - **상태 전이**: `reports`는 `inspected_at` 없이 `inspecting`/`resolved`가 될 수 없고, `resolved`일 때만 `resolved_at`이 있다. 신청서·보고서·물품도 승인·반려 상태면 처리한 담당자와 시각이 있어야 하고, 반려는 사유, 보완 요청은 의견이 있어야 한다.
 - **신뢰도**: `is_trusted`는 신고할 때의 교육 이수 여부를 복사해 둔다. 나중에 이수하더라도 그전 신고의 신뢰도는 바뀌지 않는다.
-- **물품 재고**: `rental_items.stock`은 0 아래로 내려갈 수 없다(CHECK). 구청-BE는 수령 처리 때 재고를 줄이는 것과 `rentals` 상태 변경을 한 트랜잭션으로 묶는다.
+- **물품 재고**: `rental_items.stock`은 "아직 배정하지 않은 수량"이고 0 아래로 내려갈 수 없다(CHECK). 구청-BE는 **승인할 때** 신청 수량만큼 줄이고(배정), 수령은 상태만 바꾼다. 그래서 재고보다 많이 승인할 수 없다. 승인·재고 차감·알림은 한 트랜잭션이고, 신청과 물품 행을 함께 잠가 동시에 승인해도 재고가 음수가 되지 않는다. 반려 사유(`reject_reason`, #70)는 선택 입력이다.
 - **공동 이야기**: 이야기는 나무당 하나(`stories.tree_id` 유니크)이고, 여러 돌보미가 `story_entries`로 글을 덧붙인다. 실명/별명 선택(`author_display`)은 글마다 글쓴 돌보미가 한다.
 - **받은 호응**: 로그인 없이 남기므로 `device_key`로 기기를 구분한다. 같은 기기는 글 하나에 하루 한 번만 남길 수 있게 `(story_entry_id, device_key, reacted_on)`에 유니크 제약을 건다. `reacted_on`은 한국 날짜 기준이다. 한 줄 응답은 80자까지다.
 - **단체 관리자**: `users.role`이 아니라 `organization_members.role = 'admin'`으로 판단한다. 단체 관리자도 자기 나무를 돌보는 돌보미다.
