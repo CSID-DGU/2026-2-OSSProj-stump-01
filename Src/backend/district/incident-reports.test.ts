@@ -1,8 +1,8 @@
 import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
-import { closePool } from '../common/db.js';
-import { createIncident, createTree, createUser, resetData } from '../test/fixtures.js';
+import { closePool, getPool } from '../common/db.js';
+import { createApplication, createIncident, createTree, createUser, resetData } from '../test/fixtures.js';
 
 const api = createApp();
 const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -110,5 +110,55 @@ describe('PATCH /admin/incident-reports/:id', () => {
   it('다른 관리청 신고는 404', async () => {
     const id = await createIncident({ userId: reporter.id, treeId: tree, agency: '종로구' });
     expect((await patch(id, { status: 'inspecting' })).status).toBe(404);
+  });
+});
+
+describe('조치 완료 후처리 (#21)', () => {
+  const notificationsOf = async (userId: number) =>
+    (await getPool().query('SELECT type, tree_id, report_id, title, body FROM notifications WHERE user_id = $1 ORDER BY id', [userId])).rows;
+
+  async function resolve(id: number, actionNote = '지지대 보강') {
+    await patch(id, { status: 'inspecting' });
+    return patch(id, { status: 'resolved', actionNote });
+  }
+
+  it('신고자와 그 나무의 승인된 돌보미에게 알림을 보낸다', async () => {
+    const caregiver = await createUser({ nickname: '돌보미' });
+    const pendingApplicant = await createUser();
+    const otherTreeCaregiver = await createUser();
+    await createApplication({ userId: caregiver.id, treeId: tree, status: 'approved', reviewedBy: officer.id });
+    await createApplication({ userId: pendingApplicant.id, treeId: tree }); // 심사 대기: 알림 없음
+    await createApplication({ userId: otherTreeCaregiver.id, treeId: await createTree(), status: 'approved', reviewedBy: officer.id });
+    const id = await createIncident({ userId: reporter.id, treeId: tree, category: 'leaning' });
+
+    await resolve(id);
+
+    expect(await notificationsOf(reporter.id)).toEqual([
+      {
+        type: 'report_resolved',
+        tree_id: tree,
+        report_id: id,
+        title: '신고하신 나무의 조치가 끝났어요',
+        body: '명동길 은행나무 기울어짐·쓰러짐 신고가 조치 완료되었어요. 조치 내용: 지지대 보강',
+      },
+    ]);
+    expect(await notificationsOf(caregiver.id)).toEqual([
+      expect.objectContaining({ type: 'report_resolved', report_id: id, title: '돌보는 나무의 신고가 조치되었어요' }),
+    ]);
+    expect(await notificationsOf(pendingApplicant.id)).toEqual([]);
+    expect(await notificationsOf(otherTreeCaregiver.id)).toEqual([]);
+  });
+
+  it('신고자가 돌보미이기도 하면 알림은 하나만 간다', async () => {
+    await createApplication({ userId: reporter.id, treeId: tree, status: 'approved', reviewedBy: officer.id });
+    const id = await createIncident({ userId: reporter.id, treeId: tree });
+    await resolve(id);
+    expect(await notificationsOf(reporter.id)).toHaveLength(1);
+  });
+
+  it('현장 확인 단계에서는 알림을 보내지 않는다', async () => {
+    const id = await createIncident({ userId: reporter.id, treeId: tree });
+    await patch(id, { status: 'inspecting' });
+    expect(await notificationsOf(reporter.id)).toEqual([]);
   });
 });
