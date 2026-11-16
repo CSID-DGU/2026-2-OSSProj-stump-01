@@ -1,0 +1,229 @@
+/* 처리 화면(신청 심사·보고서 검토·물품·신고)이 같이 쓰는 스타일 */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+}
+
+.title {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+.lead {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* 왼쪽 목록 + 오른쪽 상세 */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.panel {
+  background: var(--color-surface);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 24px;
+}
+
+.panelTitle {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* 표 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  padding: 8px 8px 8px 0;
+  border-bottom: 1px solid var(--color-text);
+  white-space: nowrap;
+}
+.table td {
+  padding: 11px 8px 11px 0;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+.num {
+  text-align: right;
+  white-space: nowrap;
+}
+.rowButton {
+  cursor: pointer;
+}
+.rowButton:hover td {
+  background: rgb(63 122 76 / 0.05);
+}
+.selected td {
+  background: rgb(233 184 36 / 0.14);
+}
+
+/* 정의 목록(상세 항목) */
+.facts {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 8px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+.facts dt {
+  color: var(--color-text-muted);
+}
+.facts dd {
+  margin: 0;
+}
+
+.quote {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--color-bg);
+  border-left: 3px solid var(--color-border-strong);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* 버튼 */
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.button {
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  font-weight: 500;
+  cursor: pointer;
+}
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+.small {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* 입력 */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.input,
+.textarea {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: 8px 10px;
+  font-weight: 400;
+}
+.input {
+  height: 36px;
+}
+.textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+}
+.hint {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+/* 상태 표시 */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+}
+.badgeWait {
+  background: rgb(110 90 62 / 0.12);
+  color: var(--color-wait);
+}
+.badgeOk {
+  background: rgb(63 122 76 / 0.12);
+  color: var(--color-primary);
+}
+.badgeNo {
+  background: rgb(184 67 46 / 0.12);
+  color: var(--color-danger);
+}
+.badgeInfo {
+  background: rgb(79 127 191 / 0.12);
+  color: var(--color-info);
+}
+
+/* 안내·에러 */
+.muted {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+.empty {
+  margin: 0;
+  padding: 28px 0;
+  text-align: center;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.error {
+  margin: 0;
+  padding: 10px 14px;
+  background: rgb(184 67 46 / 0.08);
+  border-left: 4px solid var(--color-danger);
+  color: var(--color-danger);
+  font-size: 13px;
+}
+.success {
+  margin: 0;
+  padding: 10px 14px;
+  background: rgb(63 122 76 / 0.08);
+  border-left: 4px solid var(--color-primary);
+  color: var(--color-primary-dark);
+  font-size: 13px;
+}
