@@ -21,7 +21,7 @@ import ui from '../components/ui.module.css';
 import { notifyCountsChanged } from '../lib/counts';
 import { daysSince, formatDate, formatDateTime, formatMinutes, formatShortDate } from '../lib/format';
 import { groupByDate } from '../lib/groupRecords';
-import { useListParams } from '../lib/listParams';
+import { selectableRow, useListParams, useOffsetFallback } from '../lib/listParams';
 import styles from './MonthlyReportsPage.module.css';
 
 const PAGE_SIZE = 20;
@@ -45,6 +45,7 @@ function dateRange(r: Pick<MonthlyReport, 'firstDate' | 'lastDate'>): string {
 export function MonthlyReportsPage() {
   const { status, offset, selectedId, setStatus, setOffset, select } = useListParams(STATUSES, 'submitted');
   const list = useAsync(() => listMonthlyReports({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  useOffsetFallback(list.data, offset, PAGE_SIZE, setOffset);
   const approvedTab = status === 'approved';
 
   return (
@@ -82,7 +83,8 @@ export function MonthlyReportsPage() {
                     <tr
                       key={r.id}
                       className={`${ui.rowButton} ${r.id === selectedId ? ui.selected : ''}`}
-                      onClick={() => select(r.id)}
+                      aria-selected={r.id === selectedId}
+                      {...selectableRow(() => select(r.id))}
                     >
                       <td>
                         <PersonName person={r.caregiver} />
