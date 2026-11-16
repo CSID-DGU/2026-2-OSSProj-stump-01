@@ -8,6 +8,7 @@ import { parse } from 'yaml';
 import { getPool } from './common/db.js';
 import { errorHandler, routeNotFound } from './common/errors.js';
 import { authRouter } from './citizen/auth.js';
+import { treesRouter } from './citizen/trees.js';
 import { districtRouter } from './district/index.js';
 import { volunteerHoursRouter } from './district/volunteer-hours.js';
 import { weatherRouter } from './district/weather.js';
@@ -32,6 +33,7 @@ export function createApp() {
 
   // 시민 모듈
   app.use('/auth', authRouter); // #3 회원·인증
+  app.use('/trees', treesRouter); // #4 나무 조회 (로그인 없음)
 
   // 구청 모듈
   app.use('/admin', districtRouter);

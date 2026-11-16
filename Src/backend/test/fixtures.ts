@@ -4,7 +4,7 @@ import { getPool } from '../common/db.js';
 
 let seq = 0;
 
-/** trees를 포함해 모든 테이블을 비운다(schema_migrations, PostGIS 테이블 제외). */
+/** trees를 포함해 모든 테이블을 비운다(schema_migrations, PostGIS 테이블, 기준 데이터 district_codes 제외). */
 export async function resetData(): Promise<void> {
   await getPool().query(`
     DO $$
@@ -12,7 +12,7 @@ export async function resetData(): Promise<void> {
     BEGIN
       SELECT string_agg(format('%I', tablename), ', ') INTO t
       FROM pg_tables
-      WHERE schemaname = 'public' AND tablename NOT IN ('schema_migrations', 'spatial_ref_sys');
+      WHERE schemaname = 'public' AND tablename NOT IN ('schema_migrations', 'spatial_ref_sys', 'district_codes');
       EXECUTE 'TRUNCATE ' || t || ' RESTART IDENTITY CASCADE';
     END $$;
   `);
