@@ -563,6 +563,71 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /applications:
+    post:
+      tags: [시민]
+      summary: 돌보미 신청서 제출
+      description: |
+        고른 나무마다 대기(pending) 신청서가 하나씩 생긴다. 구청은 그 나무 관리청의 담당자가 그루마다 따로 심사한다.
+        한 그루라도 막히면 아무것도 저장하지 않는다. 시민 계정만 쓸 수 있다.
+        - 시작일은 오늘(한국 시간)이거나 그 뒤, 활동 기간은 1년 이내, 한 번에 10그루까지 (구청 양식 확인 전 임시값, #59)
+        - 반려·종료된 나무는 다시 신청할 수 있다
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [treeIds, periodStart, periodEnd, motivation]
+              properties:
+                treeIds: { type: array, items: { type: integer }, minItems: 1, maxItems: 10, uniqueItems: true, description: 돌볼 나무 id }
+                periodStart: { type: string, format: date, example: '2026-12-01', description: 활동 시작일 }
+                periodEnd: { type: string, format: date, example: '2027-11-30', description: 활동 종료일 (시작일부터 1년 이내) }
+                motivation: { type: string, minLength: 1, maxLength: 500, description: 참여 동기 }
+      responses:
+        '201':
+          description: 만든 신청서 (나무마다 하나)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applications: { type: array, items: { $ref: '#/components/schemas/MyApplication' } }
+        '400':
+          description: 요청 값이 올바르지 않음 (지난 시작일, 1년 넘는 기간, 없는 나무 등)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 시민 계정이 아님 (구청 담당자는 신청할 수 없다)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: 이미 대기·승인 중인 나무가 섞여 있음
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /applications/me:
+    get:
+      tags: [시민]
+      summary: 내 돌보미 신청서 (최신순)
+      description: 내가 낸 신청서와 심사 결과. 반려됐으면 반려 사유가 함께 온다.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 내 신청서 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  applications: { type: array, items: { $ref: '#/components/schemas/MyApplication' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -745,6 +810,28 @@ components:
             roadName: { type: [string, 'null'], description: 노선 }
             address: { type: [string, 'null'] }
             caregiverCount: { type: integer, description: 지금 승인된 돌보미 수 }
+    MyApplication:
+      type: object
+      description: 시민이 보는 내 신청서. 구청용 Application과 달리 신청자·심사 담당자 정보는 없다.
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [pending, approved, rejected, ended], description: 대기 / 승인 / 반려 / 종료 }
+        periodStart: { type: string, format: date }
+        periodEnd: { type: string, format: date }
+        motivation: { type: [string, 'null'], description: 참여 동기 }
+        rejectReason: { type: [string, 'null'], description: 반려 사유 }
+        createdAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        tree:
+          type: object
+          properties:
+            id: { type: integer }
+            code: { type: [string, 'null'], example: 11140-00123, description: 관리번호 }
+            species: { type: string, example: 은행나무 }
+            district: { type: string, description: 위치한 자치구 }
+            dong: { type: [string, 'null'] }
+            roadName: { type: [string, 'null'], description: 노선 }
+            address: { type: [string, 'null'] }
     MonthlyReport:
       type: object
       properties:
