@@ -30,8 +30,6 @@ export function DashboardPage() {
   const months = Array.from({ length: MONTH_OPTIONS }, (_, i) => addMonths(thisMonth, -i));
   // 주소로 1년보다 이전 달을 열었을 때도 선택 상자에 그 달이 보이게 한다
   if (!months.includes(month)) months.push(month);
-  // 처리 화면으로 갈 때 단체 필터를 그대로 넘긴다
-  const orgQuery = organizationId ? `?organizationId=${organizationId}` : '';
 
   return (
     <div className={styles.page}>
@@ -85,7 +83,7 @@ export function DashboardPage() {
       {data && (
         <>
           <section className={styles.cards} aria-label="처리할 일">
-            <Link to={`/monthly-reports${orgQuery}`} className={`${styles.card} ${styles.info}`}>
+            <Link to={"/monthly-reports"} className={`${styles.card} ${styles.info}`}>
               <span className={styles.number}>{data.monthlyReports.pending}</span>
               <span className={styles.cardLabel}>검토 대기 보고서</span>
               <span className={styles.cardSub}>
@@ -95,19 +93,19 @@ export function DashboardPage() {
               </span>
             </Link>
 
-            <Link to={`/applications${orgQuery}`} className={`${styles.card} ${styles.primary}`}>
+            <Link to={"/applications"} className={`${styles.card} ${styles.primary}`}>
               <span className={styles.number}>{data.applications.pending}</span>
               <span className={styles.cardLabel}>돌보미 신청 심사 대기</span>
               <span className={styles.cardSub}>승인하면 신청자에게 알림이 갑니다</span>
             </Link>
 
-            <Link to={`/rentals${orgQuery}`} className={`${styles.card} ${styles.wait}`}>
+            <Link to={"/rentals"} className={`${styles.card} ${styles.wait}`}>
               <span className={styles.number}>{data.rentals.requested}</span>
               <span className={styles.cardLabel}>물품 신청 승인 대기</span>
               <span className={styles.cardSub}>승인 후 수령 기다리는 물품 {data.rentals.awaitingPickup}</span>
             </Link>
 
-            <IncidentCard data={data.incidentReports} to={`/incident-reports${orgQuery}`} />
+            <IncidentCard data={data.incidentReports} to={"/incident-reports"} />
           </section>
 
           <div className={styles.columns}>
@@ -152,7 +150,7 @@ export function DashboardPage() {
             <section className={styles.section}>
               <div className={styles.sectionHead}>
                 <h2>{monthLabel(data.month)} 봉사시간</h2>
-                <Link to={`/monthly-reports?status=approved${organizationId ? `&organizationId=${organizationId}` : ''}`}>
+                <Link to={"/monthly-reports?status=approved"}>
                   승인한 보고서 보기
                 </Link>
               </div>
