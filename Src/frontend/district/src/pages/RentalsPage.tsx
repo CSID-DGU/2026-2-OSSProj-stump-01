@@ -20,7 +20,7 @@ import { StatusTabs } from '../components/StatusTabs';
 import ui from '../components/ui.module.css';
 import { notifyCountsChanged } from '../lib/counts';
 import { daysSince, formatShortDate } from '../lib/format';
-import { useListParams } from '../lib/listParams';
+import { useListParams, useOffsetFallback } from '../lib/listParams';
 
 const PAGE_SIZE = 20;
 const ITEM_NAME_MAX = 50; // API 제한과 같다
@@ -35,6 +35,7 @@ function errorText(err: unknown): string {
 export function RentalsPage() {
   const { status, offset, setStatus, setOffset } = useListParams(STATUSES, 'requested');
   const rentals = useAsync(() => listRentals({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  useOffsetFallback(rentals.data, offset, PAGE_SIZE, setOffset);
   const items = useAsync(() => listRentalItems(), []);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
