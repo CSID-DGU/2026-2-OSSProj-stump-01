@@ -7,13 +7,16 @@ import styles from './DashboardPage.module.css';
 
 const MONTH_OPTIONS = 12; // 월 선택에 보여 줄 달 수(이번 달부터 거꾸로)
 const OLD_INCIDENT_DAYS = 30; // 이 날 수를 넘긴 미처리 신고는 빨갛게 표시한다(시안 기준, 임시값)
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/; // 백엔드와 같은 YYYY-MM 검사
 
 export function DashboardPage() {
   const [params, setParams] = useSearchParams();
   const thisMonth = currentMonth();
-  const month = params.get('month') ?? thisMonth;
-  const orgParam = params.get('organizationId');
-  const organizationId = orgParam ? Number(orgParam) : null;
+  // 주소창에 잘못된 값이 들어와도 400 에러 대신 기본값(이번 달, 전체)으로 보여 준다
+  const monthParam = params.get('month');
+  const month = monthParam && MONTH_RE.test(monthParam) ? monthParam : thisMonth;
+  const orgParam = Number(params.get('organizationId'));
+  const organizationId = Number.isInteger(orgParam) && orgParam > 0 ? orgParam : null;
 
   const { data, error, loading } = useDashboard({ month, organizationId });
 
@@ -25,6 +28,8 @@ export function DashboardPage() {
   }
 
   const months = Array.from({ length: MONTH_OPTIONS }, (_, i) => addMonths(thisMonth, -i));
+  // 주소로 1년보다 이전 달을 열었을 때도 선택 상자에 그 달이 보이게 한다
+  if (!months.includes(month)) months.push(month);
   // 처리 화면으로 갈 때 단체 필터를 그대로 넘긴다
   const orgQuery = organizationId ? `?organizationId=${organizationId}` : '';
 
