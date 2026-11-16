@@ -6,6 +6,7 @@ import { AdminLayout } from './layout/AdminLayout';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { MonthlyReportsPage } from './pages/MonthlyReportsPage';
 
 function RequireLogin() {
   const { token } = useAuth();
@@ -22,7 +23,7 @@ export default function App() {
             <Route element={<AdminLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="applications" element={<ApplicationsPage />} />
-              <Route path="monthly-reports" element={<ComingSoonPage title="월간 보고서 검토" issue={75} />} />
+              <Route path="monthly-reports" element={<MonthlyReportsPage />} />
               <Route path="rentals" element={<ComingSoonPage title="물품 지급" issue={76} />} />
               <Route path="incident-reports" element={<ComingSoonPage title="신고 처리" issue={29} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
