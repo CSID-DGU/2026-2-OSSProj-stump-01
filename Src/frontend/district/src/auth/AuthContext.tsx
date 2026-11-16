@@ -45,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Provider와 훅을 한 파일에 두는 흔한 구성이다. 개발 중 자동 새로고침(fast refresh)만 이 파일에서 전체 새로고침으로 바뀐다.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthValue {
   const value = useContext(AuthContext);
   if (!value) throw new Error('AuthProvider 안에서만 쓴다');
