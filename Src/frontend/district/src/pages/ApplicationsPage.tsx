@@ -16,7 +16,7 @@ import { StatusTabs } from '../components/StatusTabs';
 import ui from '../components/ui.module.css';
 import { notifyCountsChanged } from '../lib/counts';
 import { daysSince, formatDate, formatDateTime, formatShortDate } from '../lib/format';
-import { useListParams } from '../lib/listParams';
+import { selectableRow, useListParams, useOffsetFallback } from '../lib/listParams';
 
 const PAGE_SIZE = 20;
 const REJECT_REASON_MAX = 500; // API 제한과 같다
@@ -33,6 +33,7 @@ const BADGE: Record<ApplicationStatus, string> = {
 export function ApplicationsPage() {
   const { status, offset, selectedId, setStatus, setOffset, select } = useListParams(STATUSES, 'pending');
   const list = useAsync(() => listApplications({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  useOffsetFallback(list.data, offset, PAGE_SIZE, setOffset);
 
   return (
     <div className={ui.page}>
@@ -66,7 +67,8 @@ export function ApplicationsPage() {
                     <tr
                       key={a.id}
                       className={`${ui.rowButton} ${a.id === selectedId ? ui.selected : ''}`}
-                      onClick={() => select(a.id)}
+                      aria-selected={a.id === selectedId}
+                      {...selectableRow(() => select(a.id))}
                     >
                       <td>
                         <PersonName person={a.applicant} />

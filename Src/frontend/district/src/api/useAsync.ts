@@ -23,7 +23,9 @@ export function useAsync<T>(load: () => Promise<T>, deps: DependencyList): Async
         if (!cancelled) setData(result);
       })
       .catch((err: Error) => {
-        if (!cancelled) setError(err);
+        if (cancelled) return;
+        setError(err);
+        setData(null); // 실패하면 이전 결과를 지워 에러와 오래된 목록이 함께 보이지 않게 한다
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
