@@ -68,8 +68,18 @@ erDiagram
         bigint tree_id FK
         varchar status "pending | approved | rejected | ended"
         date period_start "활동 기간"
-        date period_end
-        text motivation "참여 동기"
+        date period_end "시작일 + 1년 전날 (서버가 정함)"
+        text applicant_name "신청인 성명/단체명"
+        text contact_person "기업·단체 담당부서·담당자"
+        int headcount "신청 인원"
+        char postal_code "우편번호"
+        text address
+        text phone "연락처"
+        varchar participation_type "individual | company | civic_group | religious_group | village_community | other"
+        text motivation "신청사유"
+        text activity_plan "활동계획 (별첨 2)"
+        text organization_intro "기업·단체 소개 (별첨 1, 선택)"
+        timestamptz agreed_at "참여 안내 사항 동의 시각"
         text reject_reason "반려 사유"
         bigint reviewed_by FK "심사한 구청 담당자"
         timestamptz reviewed_at
@@ -281,6 +291,16 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - 부여: `SELECT assign_tree_codes();` — `code`가 비어 있는 나무에만 매기고, 구마다 쓰인 가장 큰 순번 다음부터 이어 붙인다. 기존 번호는 바뀌지 않는다. 순서는 노선명 → 경도 → 위도.
 - 적재 스크립트가 새 나무를 넣은 뒤 이 함수를 한 번 부른다. 매년 재적재는 `source_key`로 같은 나무를 찾으므로 번호가 유지된다.
 - 화면·QR 명판에는 `id` 대신 이 번호를 보여 준다.
+
+## 돌보미 신청서 양식 항목 (마이그레이션 20261117120000_application_form_fields, #6)
+
+구청 「나무돌보미(Adopt a Tree) 신청서(안)」 양식의 항목을 `caregiver_applications`에 칸으로 넣었다.
+
+- 신청인(성명/단체명), 담당부서·담당자(기업·단체만 필수), 신청 인원, 우편번호·주소, 연락처, 참여유형, 신청사유(`motivation`), 활동계획, 기업·단체 소개, 안내 사항 동의 시각.
+- 양식의 '입양대상지'는 가로수뿐이라 칸을 두지 않는다(`tree_id`가 대상). 별첨 파일은 받지 않고 활동계획·소개를 글로 받는다.
+- 활동 기간은 양식대로 1년 기본이다. 시민은 시작일만 고르고 `period_end`는 서버가 시작일 + 1년 전날로 정한다.
+- 이 마이그레이션 전에 만든 신청서가 있어서 새 칸은 NULL을 허용한다. 필수 여부는 시민-BE API(zod)가 검사한다.
+- 여러 그루를 한 번에 내면 양식 항목은 그루마다 같은 값이 들어간다.
 
 ## 가로수 원본 데이터 (#18)
 
