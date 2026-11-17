@@ -24,13 +24,20 @@ beforeEach(async () => {
 });
 afterAll(closePool);
 
-/** 정상 신청 본문. 바꿀 칸만 덮어쓴다. */
+/** 정상 신청 본문(개인 신청). 바꿀 칸만 덮어쓴다. 항목은 구청 「나무돌보미 신청서(안)」 양식을 따른다. */
 function body(overrides: Record<string, unknown> = {}) {
   return {
     treeIds: [treeA],
     periodStart: '2030-03-01',
-    periodEnd: '2030-08-31',
+    applicantName: '김돌봄',
+    headcount: 2,
+    postalCode: '04538',
+    address: '서울특별시 중구 명동길 1',
+    phone: '010-1234-5678',
+    participationType: 'individual',
     motivation: '출근길에 매일 보는 나무라서요',
+    activityPlan: '주 2회 나무 주변 쓰레기 줍기',
+    agreed: true,
     ...overrides,
   };
 }
@@ -57,15 +64,47 @@ describe('POST /applications', () => {
     expect(res.body.applications).toHaveLength(2);
     expect(new Set(res.body.applications.map((a: AppBody) => a.tree.id))).toEqual(new Set([treeA, treeB]));
     for (const app of res.body.applications) {
-      expect(app).toMatchObject({
-        status: 'pending',
-        periodStart: '2030-03-01',
-        periodEnd: '2030-08-31',
-        motivation: '출근길에 매일 보는 나무라서요',
-        rejectReason: null,
-      });
+      expect(app).toMatchObject({ status: 'pending', rejectReason: null });
     }
     expect(await countApplications(me.id)).toBe(2);
+  });
+
+  it('양식 항목을 저장하고, 활동 기간은 시작일부터 1년(전날까지)으로 정한다', async () => {
+    const res = await submit(body({ periodStart: '2030-03-01' }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.applications[0]).toMatchObject({
+      periodStart: '2030-03-01',
+      periodEnd: '2031-02-28',
+      applicantName: '김돌봄',
+      contactPerson: null,
+      headcount: 2,
+      postalCode: '04538',
+      address: '서울특별시 중구 명동길 1',
+      phone: '010-1234-5678',
+      participationType: 'individual',
+      motivation: '출근길에 매일 보는 나무라서요',
+      activityPlan: '주 2회 나무 주변 쓰레기 줍기',
+      organizationIntro: null,
+    });
+    expect(res.body.applications[0].agreedAt).not.toBeNull();
+  });
+
+  it('기업·단체는 담당자와 소개를 함께 낸다', async () => {
+    const res = await submit(
+      body({
+        applicantName: '푸른숲 주식회사',
+        participationType: 'company',
+        contactPerson: 'ESG팀 박담당',
+        organizationIntro: '사내 봉사 동아리가 있습니다',
+        headcount: 15,
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect(res.body.applications[0]).toMatchObject({
+      contactPerson: 'ESG팀 박담당',
+      organizationIntro: '사내 봉사 동아리가 있습니다',
+    });
   });
 
   it('제출한 신청서는 그 나무 관리청 담당자의 심사 대기 목록에 들어간다', async () => {
@@ -80,21 +119,14 @@ describe('POST /applications', () => {
   });
 
   it('시작일이 오늘(한국 시간)이면 받는다', async () => {
-    const res = await submit(body({ periodStart: seoulDate(0), periodEnd: seoulDate(30) }));
+    const res = await submit(body({ periodStart: seoulDate(0) }));
     expect(res.status).toBe(201);
   });
 
   it('시작일이 오늘보다 앞이면 400이고 저장하지 않는다', async () => {
-    const res = await submit(body({ periodStart: seoulDate(-1), periodEnd: seoulDate(30) }));
+    const res = await submit(body({ periodStart: seoulDate(-1) }));
     expect(res.status).toBe(400);
     expect(await countApplications(me.id)).toBe(0);
-  });
-
-  it('활동 기간은 1년 안쪽까지만 받는다', async () => {
-    const lastDay = await submit(body({ treeIds: [treeA], periodStart: '2030-03-01', periodEnd: '2031-02-28' }));
-    const overYear = await submit(body({ treeIds: [treeB], periodStart: '2030-03-01', periodEnd: '2031-03-01' }));
-    expect(lastDay.status).toBe(201);
-    expect(overYear.status).toBe(400);
   });
 
   it('한 번에 10그루까지는 받는다', async () => {
@@ -105,17 +137,27 @@ describe('POST /applications', () => {
   });
 
   // 각 줄은 정상 본문에서 한 칸만 틀리게 바꾼다. 나무는 실제로 있는 것만 써서, 400이 검증 때문인지만 보게 한다.
-  it.each<[string, () => Promise<Record<string, unknown>>]>([
-    ['나무를 하나도 안 고르면', async () => ({ treeIds: [] })],
-    ['한 번에 11그루를 고르면', async () => ({ treeIds: await Promise.all(Array.from({ length: 11 }, () => createTree())) })],
-    ['같은 나무를 두 번 넣으면', async () => ({ treeIds: [treeA, treeA] })],
-    ['참여 동기가 공백뿐이면', async () => ({ motivation: '   ' })],
-    ['참여 동기가 500자를 넘으면', async () => ({ motivation: '가'.repeat(501) })],
-    ['없는 날짜면', async () => ({ periodStart: '2030-02-30' })],
-    ['끝나는 날이 시작일보다 앞이면', async () => ({ periodStart: '2030-03-01', periodEnd: '2030-02-28' })],
-  ])('%s 400이고 저장하지 않는다', async (_, change) => {
+  it.each<[string, string, () => Promise<Record<string, unknown>>]>([
+    ['나무를 하나도 안 고르면', 'treeIds', async () => ({ treeIds: [] })],
+    ['한 번에 11그루를 고르면', 'treeIds', async () => ({ treeIds: await Promise.all(Array.from({ length: 11 }, () => createTree())) })],
+    ['같은 나무를 두 번 넣으면', 'treeIds', async () => ({ treeIds: [treeA, treeA] })],
+    ['참여 동기가 공백뿐이면', 'motivation', async () => ({ motivation: '   ' })],
+    ['참여 동기가 500자를 넘으면', 'motivation', async () => ({ motivation: '가'.repeat(501) })],
+    ['없는 날짜면', 'periodStart', async () => ({ periodStart: '2030-02-30' })],
+    ['신청인 이름이 없으면', 'applicantName', async () => ({ applicantName: '' })],
+    ['신청 인원이 0명이면', 'headcount', async () => ({ headcount: 0 })],
+    ['우편번호가 5자리 숫자가 아니면', 'postalCode', async () => ({ postalCode: '0453' })],
+    ['주소가 없으면', 'address', async () => ({ address: ' ' })],
+    ['연락처가 전화번호 모양이 아니면', 'phone', async () => ({ phone: '연락주세요' })],
+    ['참여유형이 목록에 없으면', 'participationType', async () => ({ participationType: 'school' })],
+    ['기업·단체인데 담당자가 없으면', 'contactPerson', async () => ({ participationType: 'civic_group' })],
+    ['활동계획이 없으면', 'activityPlan', async () => ({ activityPlan: '' })],
+    ['안내 사항에 동의하지 않으면', 'agreed', async () => ({ agreed: false })],
+  ])('%s 400이고 저장하지 않는다', async (_, field, change) => {
     const res = await submit(body(await change()));
     expect(res.status).toBe(400);
+    // 바꾼 그 칸 때문에 막혔는지 본다(다른 칸 오류로 400이 나면 이 줄이 실패한다)
+    expect(res.body.error.issues.map((i: { path: string[] }) => i.path[0])).toEqual([field]);
     expect(await countApplications(me.id)).toBe(0);
   });
 
