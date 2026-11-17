@@ -273,3 +273,53 @@ textarea.tc-field__input {
   line-height: 28px;
   text-align: center;
 }
+
+/* ---- #80에서 추가 (디자인 가이드에 아직 없음) ---- */
+
+/* 달력: 7칸, 한 칸 최소 44px */
+.tc-calendar { display: flex; flex-direction: column; gap: 4px; }
+.tc-calendar__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.tc-calendar__weekday { text-align: center; font-size: 12px; line-height: 18px; color: var(--muted); }
+.tc-calendar__day {
+  position: relative;
+  min-height: var(--tap-target);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 2px 0;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--faint);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+/* 기록이 있어 고를 수 있는 날 */
+.tc-calendar__day.is-open { border-color: var(--line-strong); color: var(--ink); font-weight: 500; cursor: pointer; }
+/* 고른 날 */
+.tc-calendar__day.is-selected { border-color: var(--primary); background: var(--primary); color: var(--on-primary); font-weight: 700; }
+/* 오늘: 아래 노란 밑줄 */
+.tc-calendar__day.is-today > span:first-child { box-shadow: inset 0 -3px 0 var(--mark); }
+.tc-calendar__tag { font-size: 10px; line-height: 12px; color: var(--muted); }
+.tc-calendar__day:disabled { cursor: default; }
+
+/* 달력 위 달 넘기기 */
+.tc-month-nav { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; }
+.tc-month-nav button {
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 22px;
+  cursor: pointer;
+}
+.tc-month-nav button:disabled { color: var(--faint); cursor: default; }
+.tc-month-nav__label { text-align: center; font-size: 16px; font-weight: 500; line-height: 24px; }
+
+/* 소제목 (화면 안 묶음 이름) */
+.tc-section-title { font-size: 16px; font-weight: 500; line-height: 24px; }

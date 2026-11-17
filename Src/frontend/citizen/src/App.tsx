@@ -3,6 +3,9 @@ import AppLayout from './components/AppLayout'
 import HomePage from './pages/HomePage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import RecordNewPage from './pages/RecordNewPage'
+import RecordsPage from './pages/RecordsPage'
+import ReportWritePage from './pages/ReportWritePage'
+import VolunteerHoursPage from './pages/VolunteerHoursPage'
 
 // 주소(URL)와 화면을 연결하는 곳.
 // AppLayout 안에 있는 화면에는 하단 탭이 붙고, 밖에 있는 화면(기록 작성 등)에는 붙지 않는다.
@@ -16,10 +19,7 @@ export default function App() {
             path="map"
             element={<PlaceholderPage title="나무 지도" issue="#37" plan="지도에서 나무를 고르고 상세로 들어가요. 공용 지도 컴포넌트가 나오면 만들어요." />}
           />
-          <Route
-            path="records"
-            element={<PlaceholderPage title="내 기록" issue="#39, #80" plan="날짜별 활동 기록과 월간 보고서, 내 봉사시간을 봐요." />}
-          />
+          <Route path="records" element={<RecordsPage />} />
           <Route
             path="group"
             element={<PlaceholderPage title="우리 단체" issue="#83" plan="초대 코드로 단체에 연결하고, 회원 활동을 묶어 봐요." />}
@@ -34,6 +34,8 @@ export default function App() {
           />
         </Route>
         <Route path="records/new" element={<RecordNewPage />} />
+        <Route path="reports/new" element={<ReportWritePage />} />
+        <Route path="volunteer-hours" element={<VolunteerHoursPage />} />
       </Routes>
     </BrowserRouter>
   )

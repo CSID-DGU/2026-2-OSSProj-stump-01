@@ -26,6 +26,29 @@ export function isThisMonth(key: string): boolean {
   return key.slice(0, 7) === todayKey().slice(0, 7)
 }
 
+// 이번 달 "2026-11"
+export function currentMonthKey(): string {
+  return todayKey().slice(0, 7)
+}
+
+// "2026-11"에서 delta달 옮긴 달 ("2026-11", -1 → "2026-10")
+export function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number)
+  return toDateKey(new Date(y, m - 1 + delta, 1)).slice(0, 7)
+}
+
+// "2026-11" → "2026년 11월"
+export function formatMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${y}년 ${m}월`
+}
+
+// "2026-11-03" → "11월 3일"
+export function formatShortDate(key: string): string {
+  const [, m, d] = key.split('-').map(Number)
+  return `${m}월 ${d}일`
+}
+
 // 이번 달은 며칠까지 있는지
 export function daysInThisMonth(): number {
   const now = new Date()
