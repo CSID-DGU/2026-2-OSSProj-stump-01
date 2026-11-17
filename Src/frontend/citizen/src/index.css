@@ -81,6 +81,11 @@ img {
   gap: var(--space-3);
 }
 
+.home-report-link {
+  text-align: center;
+  line-height: var(--tap-target);
+}
+
 /* 데스크탑(1024px 이상): 하단 탭을 위로 올리고, 현장 기능은 숨긴다 */
 @media (min-width: 1024px) {
   .app-shell {

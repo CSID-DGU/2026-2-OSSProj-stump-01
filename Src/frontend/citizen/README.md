@@ -1,7 +1,7 @@
 # 서울 TreeCare 시민 웹
 
 돌보미와 지나가는 시민이 휴대폰으로 쓰는 모바일 웹(PWA)이다. React + TypeScript + Vite로 만든다.
-아직 백엔드 API에 연결하지 않았다. 화면의 숫자는 `src/mocks/`의 예시 데이터다.
+아직 백엔드 API에 연결하지 않았다. 기록은 `src/store/recordStore.ts`가 브라우저(localStorage)에 임시로 저장한다.
 
 ## 실행
 
