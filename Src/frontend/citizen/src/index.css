@@ -1,0 +1,113 @@
+/* 화면 전체 틀. 색·간격은 tokens.css의 변수만 쓴다. */
+@import "./styles/tokens.css";
+@import "./styles/components.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 22px;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+}
+
+/* 앱 껍데기: 모바일은 폭 전체, 내용 + 하단 탭 */
+.app-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* 하단 탭은 화면 아래에 붙인다 */
+.app-shell > .tc-nav {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+  height: auto;
+  border-top: 1px solid var(--line);
+}
+
+/* 화면 안의 좌우 여백 (가이드: space-6) */
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-6) var(--space-6);
+}
+
+.page-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.page-title p {
+  color: var(--muted);
+}
+
+/* 맨 아래 큰 버튼 자리: 내용이 짧아도 아래로 밀린다 */
+.page-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* 데스크탑(1024px 이상): 하단 탭을 위로 올리고, 현장 기능은 숨긴다 */
+@media (min-width: 1024px) {
+  .app-shell {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .app-shell > .tc-nav {
+    order: -1;
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    display: flex;
+    gap: var(--space-6);
+    height: auto;
+    padding: var(--space-4) var(--space-6) 0;
+    border-top: 0;
+    border-bottom: 1px solid var(--line);
+    z-index: 1;
+  }
+
+  .app-shell > .tc-nav a {
+    flex-direction: column;
+  }
+
+  /* QR 안내, 현장 사진 촬영, 홈 화면 추가처럼 현장에서만 쓰는 것에 붙인다 */
+  .field-only {
+    display: none !important;
+  }
+}

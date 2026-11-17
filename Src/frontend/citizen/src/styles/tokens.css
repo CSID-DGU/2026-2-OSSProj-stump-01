@@ -1,0 +1,80 @@
+/*
+  TreeCare 디자인 토큰
+  디자인 가이드(https://claude.ai/artifact/Nt5jA2r1uasxkeum3EqynZ)의 tokens.json과 같은 값이다.
+  색·글꼴·간격은 화면 코드에 직접 쓰지 말고 아래 변수 이름으로만 쓴다.
+  가이드에서 값을 바꾸면 이 파일도 같이 고친다.
+*/
+
+:root {
+  /* 색 (라이트, 기본) */
+  --bg: #f7f8f4;
+  --surface: #ffffff;
+  --subtle: #e6eae4;
+  --line: #d9ded6;
+  --line-strong: #b9c1b9;
+  --faint: #9aa39b;
+  --muted: #5b665d;
+  --ink: #1a221c;
+  --primary: #3f7a4c;
+  --primary-press: #2b5a36;
+  --on-primary: #f7f8f4;
+  --mark: #e9b824;
+  --danger: #b8432e;
+  --earth: #6e5a3e;
+  --cold: #4f7fbf;
+
+  /* 글꼴 */
+  --font-display: Hahmlet, "Noto Serif KR", serif;
+  --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+  /* 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+
+  /* 모서리 */
+  --radius-none: 0px;
+  --radius-dot: 6px;
+  --radius-chip: 16px;
+  --radius-pill: 27px;
+
+  /* 크기 */
+  --button-height: 54px;
+  --chip-height: 32px;
+  --tap-target: 44px;
+  --nav-height: 76px;
+  --mobile-width: 390px;
+}
+
+/* 다크 모드: 아직 켜지 않는다. <html data-theme="dark">를 붙이면 적용된다. */
+:root[data-theme="dark"] {
+  --bg: #141a16;
+  --surface: #1c241f;
+  --subtle: #232c26;
+  --line: #2e3830;
+  --line-strong: #66716a;
+  --faint: #7d877f;
+  --muted: #a3ada4;
+  --ink: #e8ece6;
+  --primary: #6fae7c;
+  --primary-press: #8cc296;
+  --on-primary: #10170f;
+  --mark: #e9b824;
+  --danger: #e07a63;
+  --earth: #c7a97e;
+  --cold: #86a9db;
+  color-scheme: dark;
+}
+
+/* 글자 스타일: 가이드의 type 스타일과 같은 이름 */
+.display-xl { font-family: var(--font-display); font-size: 30px; line-height: 36px; font-weight: 700; }
+.display { font-family: var(--font-display); font-size: 26px; line-height: 34px; font-weight: 700; }
+.tree-name { font-family: var(--font-display); font-size: 18px; line-height: 26px; font-weight: 500; }
+.label-lg { font-size: 16px; line-height: 24px; font-weight: 500; }
+.body { font-size: 14px; line-height: 22px; font-weight: 400; }
+.caption { font-size: 13px; line-height: 20px; font-weight: 400; }
+.micro { font-size: 12px; line-height: 18px; font-weight: 400; }
