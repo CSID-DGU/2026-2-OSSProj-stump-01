@@ -606,7 +606,8 @@ paths:
                 properties:
                   applications: { type: array, items: { $ref: '#/components/schemas/MyApplication' } }
         '400':
-          description: 요청 값이 올바르지 않음 (지난 시작일, 1년 넘는 기간, 없는 나무 등)
+          description: 요청 값이 올바르지 않음 (지난 시작일, 빠진 양식 항목, 동의 안 함, 없는 나무 등). 칸별 사유는 error.issues
+
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
