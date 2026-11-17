@@ -1,0 +1,102 @@
+/* 월간 보고서·봉사시간·내 기록 화면(#80) 전용 스타일 */
+
+.report-hint {
+  color: var(--muted);
+  text-align: center;
+}
+
+.report-empty {
+  color: var(--muted);
+}
+
+.report-secondary {
+  text-align: center;
+  line-height: var(--tap-target);
+}
+
+/* 미리보기: 기록 한 건 = 항목 목록 하나 */
+.report-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.report-entry {
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.report-entry dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.report-entry__field {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--space-3);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.report-entry__field dt {
+  color: var(--muted);
+}
+
+.report-entry__field dd {
+  margin: 0;
+  min-width: 0;
+}
+
+/* 봉사시간·기록 목록 */
+.hours-label,
+.hours-help {
+  color: var(--muted);
+}
+
+.hours-note {
+  color: var(--danger);
+}
+
+.hours-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.hours-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hours-item {
+  align-items: flex-start;
+}
+
+.hours-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hours-item__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.records-link {
+  color: inherit;
+  text-decoration: none;
+  min-height: var(--tap-target);
+  align-items: center;
+}
