@@ -1,0 +1,62 @@
+/* 활동 기록·신고 화면(#39) 전용 스타일 */
+
+.record-tabs {
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--line);
+}
+
+.record-form {
+  gap: var(--space-7);
+}
+
+.record-missing {
+  color: var(--muted);
+  text-align: center;
+}
+
+/* 저장 직후 화면 */
+.record-saved__ring {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
+.record-saved__again {
+  text-align: center;
+  line-height: var(--tap-target);
+}
+
+/* 이번 달 조각 고리 */
+.month-ring__track {
+  stroke: var(--line);
+}
+
+.month-ring__past {
+  stroke: var(--primary);
+  opacity: 0.35;
+}
+
+.month-ring__now {
+  stroke: var(--primary);
+  transition: stroke-dasharray 1.1s ease-out 0.2s;
+}
+
+.month-ring__top {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.month-ring__bottom {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  fill: var(--muted);
+}
+
+/* 움직임을 줄이도록 설정한 사람에게는 차오름 연출을 끈다 */
+@media (prefers-reduced-motion: reduce) {
+  .month-ring__now {
+    transition: none;
+  }
+}
