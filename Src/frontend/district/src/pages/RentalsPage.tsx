@@ -74,7 +74,7 @@ export function RentalsPage() {
                     <th>물품</th>
                     <th className={ui.num}>수량</th>
                     <th className={ui.num}>{status === 'requested' ? '기다린 날' : '신청일'}</th>
-                    <th>{status === 'rejected' ? '반려 사유' : '처리'}</th>
+                    <th className={styles.actionCell}>{status === 'rejected' ? '반려 사유' : '처리'}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,7 +184,7 @@ function RentalRow({
       <td>{r.item.name}</td>
       <td className={ui.num}>{r.quantity}개</td>
       <td className={ui.num}>{r.status === 'requested' ? `${daysSince(r.createdAt)}일` : formatShortDate(r.createdAt)}</td>
-      <td>
+      <td className={styles.actionCell}>
         {r.status === 'requested' && !rejecting && (
           <div className={ui.actions}>
             <button

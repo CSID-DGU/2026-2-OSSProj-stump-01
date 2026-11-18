@@ -19,3 +19,8 @@
   gap: 12px;
   min-width: 0;
 }
+
+/* 처리 칸은 앞의 숫자 칸과 붙지 않게 띄운다 (.table th/td 여백보다 우선하도록 두 단계로 쓴다) */
+.column .actionCell {
+  padding-left: 24px;
+}
