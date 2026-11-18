@@ -24,28 +24,26 @@ npm run build      # dist/로 빌드
 
 ## 로그인
 
-- 로그인 화면은 `POST /auth/login`을 부른다. 이 API는 시민-BE 회원·인증(#3)에서 만들고, 응답이 `{ token }`이라고 가정했다. 명세가 나오면 `src/auth/AuthContext.tsx`의 `login()`만 맞춘다.
-- 받은 토큰은 브라우저 `localStorage`에 둔다. 401 응답이 오면 자동으로 로그아웃된다.
+- 로그인 화면은 `POST /auth/login`(#3)을 부른다. 시민과 구청 담당자가 같은 API를 쓰므로, 응답의 `user.role`이 `officer`가 아니면 토큰을 저장하지 않고 "구청 담당자 계정이 아닙니다"를 보여 준다.
+- 받은 토큰은 브라우저 `localStorage`에 둔다. 다시 열면 `GET /auth/me`로 아직 구청 담당자인지 확인하고, 401 응답이 오면 자동으로 로그아웃된다.
 
-### 개발용 토큰 (#3 전까지)
+### 로컬에서 구청 담당자 계정 만들기
 
-`npm run dev`로 띄운 화면에서만 로그인 화면 아래 "개발용 토큰으로 들어가기"가 보인다. 구청 담당자 계정과 토큰을 직접 만들어 넣는다.
+구청 담당자 계정은 회원가입 화면이 없고 운영자가 DB에서 만든다(`openapi.yaml` `/auth/signup` 설명). 로컬에서는 시민으로 가입한 뒤 역할을 바꾼다.
 
-1. 로컬 DB에 구청 담당자 계정을 만든다. `agency`는 가로수 데이터의 관리청 값(`trees.agency`)과 같아야 그 관리청 데이터가 보인다.
-
-   ```bash
-   docker exec -it treemate-db psql -U treemate -d treemate -c \
-     "INSERT INTO users (email, password_hash, nickname, role, agency) VALUES ('officer@test.local', '-', '중구 담당자', 'officer', '중구') RETURNING id;"
-   ```
-
-2. 나온 id로 토큰을 만든다. `Src/backend`에서 실행하고, `JWT_SECRET`은 `Src/.env` 값과 같아야 한다.
+1. API 서버가 떠 있는 상태에서 가입한다.
 
    ```bash
-   cd Src/backend
-   node -e "console.log(require('jsonwebtoken').sign({}, process.argv[1], { subject: process.argv[2], expiresIn: '7d' }))" "<JWT_SECRET>" "<id>"
+   curl -X POST localhost:4000/auth/signup -H "Content-Type: application/json"      -d '{"email":"officer@test.local","password":"password123","nickname":"중구 담당자"}'
    ```
 
-3. 출력된 토큰을 로그인 화면의 개발용 토큰 칸에 붙여 넣는다.
+2. 역할과 관리청을 바꾼다. `agency`는 가로수 데이터의 관리청 값(`trees.agency`)과 같아야 그 관리청 데이터가 보인다.
+
+   ```bash
+   docker exec -it treemate-db psql -U treemate -d treemate -c      "UPDATE users SET role = 'officer', agency = '중구' WHERE email = 'officer@test.local';"
+   ```
+
+3. 구청 웹에서 그 이메일·비밀번호로 로그인한다.
 
 ## 폴더
 

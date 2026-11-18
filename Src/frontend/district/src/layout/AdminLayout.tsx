@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import styles from './AdminLayout.module.css';
 
 export function AdminLayout() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   // 메뉴 옆 대기 건수와 관리청 이름은 한눈에 보기 집계(이번 달)에서 가져온다
   const { data } = useDashboard({});
 
@@ -26,7 +26,9 @@ export function AdminLayout() {
       <nav className={styles.sidebar} aria-label="구청 메뉴">
         <div className={styles.brand}>
           <span className={styles.logo}>TreeCare 구청</span>
-          <span className={styles.agency}>{data?.agency ?? ' '}</span>
+          <span className={styles.agency}>
+            {[data?.agency ?? user?.agency, user?.nickname].filter(Boolean).join(', ') || ' '}
+          </span>
         </div>
         <ul className={styles.menu}>
           {menu.map((item) => (

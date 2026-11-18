@@ -5,10 +5,9 @@ import { useAuth } from './AuthContext';
 import styles from './LoginPage.module.css';
 
 export function LoginPage() {
-  const { token, login, loginWithToken } = useAuth();
+  const { token, login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [devToken, setDevToken] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -21,11 +20,8 @@ export function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        setError('로그인 API가 아직 없습니다(#3). 아래 개발용 토큰으로 들어가세요.');
-      } else {
-        setError(err instanceof Error ? err.message : '로그인하지 못했습니다.');
-      }
+      if (err instanceof ApiError && err.status === 401) setError('이메일 또는 비밀번호가 맞지 않습니다.');
+      else setError(err instanceof Error ? err.message : '로그인하지 못했습니다.');
     } finally {
       setBusy(false);
     }
@@ -63,18 +59,7 @@ export function LoginPage() {
             {busy ? '확인 중…' : '로그인'}
           </button>
         </form>
-
-        {/* 개발 서버(npm run dev)에서만 보인다. 배포 빌드에는 들어가지 않는다. */}
-        {import.meta.env.DEV && (
-          <details className={styles.dev}>
-            <summary>개발용 토큰으로 들어가기</summary>
-            <p>구청 담당자 토큰을 붙여 넣습니다. 만드는 방법은 Src/frontend/district/README.md에 있습니다.</p>
-            <textarea rows={3} value={devToken} onChange={(e) => setDevToken(e.target.value)} aria-label="개발용 토큰" />
-            <button type="button" disabled={!devToken.trim()} onClick={() => loginWithToken(devToken)}>
-              토큰으로 들어가기
-            </button>
-          </details>
-        )}
+        <p className={styles.sub}>구청 담당자 계정은 운영자가 관리청과 함께 만듭니다.</p>
       </div>
     </main>
   );
