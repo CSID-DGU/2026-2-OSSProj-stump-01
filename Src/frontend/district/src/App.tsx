@@ -4,8 +4,8 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { AdminLayout } from './layout/AdminLayout';
 import { ApplicationsPage } from './pages/ApplicationsPage';
-import { ComingSoonPage } from './pages/ComingSoonPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { IncidentReportsPage } from './pages/IncidentReportsPage';
 import { MonthlyReportsPage } from './pages/MonthlyReportsPage';
 import { RentalsPage } from './pages/RentalsPage';
 
@@ -26,7 +26,7 @@ export default function App() {
               <Route path="applications" element={<ApplicationsPage />} />
               <Route path="monthly-reports" element={<MonthlyReportsPage />} />
               <Route path="rentals" element={<RentalsPage />} />
-              <Route path="incident-reports" element={<ComingSoonPage title="신고 처리" issue={29} />} />
+              <Route path="incident-reports" element={<IncidentReportsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Route>
