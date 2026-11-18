@@ -25,6 +25,7 @@
   --font-title: 'Hahmlet', serif;
 
   --sidebar-width: 220px;
+  --content-max-width: 2000px; /* 메뉴 오른쪽을 꽉 채우되, 아주 넓은 모니터에서만 표가 너무 늘어나지 않게 막는다 */
   --radius: 6px;
 }
 
