@@ -1,0 +1,75 @@
+/* 디자인 토큰. 팀 시안(구청 웹, 2026-11)의 색·글꼴을 옮겼다.
+   Figma 디자인 가이드(#36)가 확정되면 값만 바꾼다. 화면 코드에서는 색 값을 직접 쓰지 않고 이 변수를 쓴다. */
+:root {
+  --color-bg: #f7f8f4;
+  --color-surface: #ffffff;
+  --color-text: #1a221c;
+  --color-text-muted: #5b665d;
+  --color-text-faint: #8e988f;
+  --color-border: #d9ded6;
+  --color-border-strong: #b9c1b9;
+
+  --color-sidebar: #1a221c;
+  --color-sidebar-line: #343e37;
+  --color-sidebar-text: #b9c1b9;
+  --color-sidebar-active: #f7f8f4;
+
+  --color-primary: #3f7a4c; /* 녹색: 기본 동작, 링크 */
+  --color-primary-dark: #2b5a36;
+  --color-highlight: #e9b824; /* 노랑: 선택 표시, 대기 건수 */
+  --color-danger: #b8432e; /* 빨강: 오래된 미처리, 경고 */
+  --color-wait: #6e5a3e; /* 갈색: 진행 중·대기 */
+  --color-info: #4f7fbf; /* 파랑: 보고서·안내 */
+
+  --font-body: 'IBM Plex Sans KR', system-ui, sans-serif;
+  --font-title: 'Hahmlet', serif;
+
+  --sidebar-width: 220px;
+  --radius: 6px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--color-primary);
+}
+a:hover {
+  color: var(--color-primary-dark);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* 화면 읽기 프로그램에만 보이는 글자 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
