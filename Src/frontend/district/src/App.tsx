@@ -7,6 +7,7 @@ import { ApplicationsPage } from './pages/ApplicationsPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { MonthlyReportsPage } from './pages/MonthlyReportsPage';
+import { RentalsPage } from './pages/RentalsPage';
 
 function RequireLogin() {
   const { token } = useAuth();
@@ -24,7 +25,7 @@ export default function App() {
               <Route index element={<DashboardPage />} />
               <Route path="applications" element={<ApplicationsPage />} />
               <Route path="monthly-reports" element={<MonthlyReportsPage />} />
-              <Route path="rentals" element={<ComingSoonPage title="물품 지급" issue={76} />} />
+              <Route path="rentals" element={<RentalsPage />} />
               <Route path="incident-reports" element={<ComingSoonPage title="신고 처리" issue={29} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
