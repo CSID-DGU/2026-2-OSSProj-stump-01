@@ -3,10 +3,10 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDashboard } from '../api/dashboard';
 import { addMonths, currentMonth, daysSince, formatMinutes, monthLabel, todayLabel } from '../lib/format';
+import { OLD_INCIDENT_DAYS } from '../lib/thresholds';
 import styles from './DashboardPage.module.css';
 
 const MONTH_OPTIONS = 12; // 월 선택에 보여 줄 달 수(이번 달부터 거꾸로)
-const OLD_INCIDENT_DAYS = 30; // 이 날 수를 넘긴 미처리 신고는 빨갛게 표시한다(시안 기준, 임시값)
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/; // 백엔드와 같은 YYYY-MM 검사
 
 export function DashboardPage() {
