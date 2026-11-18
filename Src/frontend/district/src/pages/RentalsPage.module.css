@@ -1,0 +1,26 @@
+/* 넓은 화면에서는 신청 처리(왼쪽)와 물품·재고(오른쪽)를 나란히 둔다. 표가 너무 길게 퍼지지 않게 한다 */
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (min-width: 1500px) {
+  .columns {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 40px;
+  }
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* 처리 칸은 앞의 숫자 칸과 붙지 않게 띄운다 (.table th/td 여백보다 우선하도록 두 단계로 쓴다) */
+.column .actionCell {
+  padding-left: 24px;
+}

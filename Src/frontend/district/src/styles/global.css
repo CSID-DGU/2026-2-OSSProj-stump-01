@@ -22,9 +22,16 @@
   --color-info: #4f7fbf; /* 파랑: 보고서·안내 */
 
   --font-body: 'IBM Plex Sans KR', system-ui, sans-serif;
+
+  /* 글자 크기. 구청 담당자가 보고서·메모를 오래 읽으므로 시안보다 한 단계씩 키웠다 */
+  --text-badge: 12px; /* 상태 표시처럼 작은 칸 안 */
+  --text-xs: 13px; /* 보조 설명, 날짜, 안내 */
+  --text-sm: 14px; /* 표 내용, 상세 항목, 메모 */
+  --text-md: 15px; /* 기본 본문, 메뉴 */
   --font-title: 'Hahmlet', serif;
 
   --sidebar-width: 220px;
+  --content-max-width: 2000px; /* 메뉴 오른쪽을 꽉 채우되, 아주 넓은 모니터에서만 표가 너무 늘어나지 않게 막는다 */
   --radius: 6px;
 }
 
@@ -39,8 +46,8 @@ body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-body);
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: var(--text-md);
+  line-height: 1.55;
 }
 
 a {

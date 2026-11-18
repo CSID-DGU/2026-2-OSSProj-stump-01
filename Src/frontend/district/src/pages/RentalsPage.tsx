@@ -21,6 +21,7 @@ import ui from '../components/ui.module.css';
 import { notifyCountsChanged } from '../lib/counts';
 import { daysSince, formatShortDate } from '../lib/format';
 import { useListParams, useOffsetFallback } from '../lib/listParams';
+import styles from './RentalsPage.module.css';
 
 const PAGE_SIZE = 20;
 const ITEM_NAME_MAX = 50; // API 제한과 같다
@@ -55,91 +56,93 @@ export function RentalsPage() {
 
       {message && <p className={message.ok ? ui.success : ui.error}>{message.text}</p>}
 
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 className={ui.sectionTitle}>신청 처리</h2>
-        <StatusTabs label="물품 신청 상태" tabs={TABS} value={status} onChange={setStatus} />
-        {rentals.error && <p className={ui.error}>신청 목록을 불러오지 못했습니다. {rentals.error.message}</p>}
-        {rentals.loading && !rentals.data && <p className={ui.muted}>불러오는 중…</p>}
-        {rentals.data && rentals.data.items.length === 0 && (
-          <p className={ui.empty}>{RENTAL_STATUS_LABEL[status]} 상태인 신청이 없습니다.</p>
-        )}
-        {rentals.data && rentals.data.items.length > 0 && (
-          <>
+      <div className={styles.columns}>
+        <section className={styles.column}>
+          <h2 className={ui.sectionTitle}>신청 처리</h2>
+          <StatusTabs label="물품 신청 상태" tabs={TABS} value={status} onChange={setStatus} />
+          {rentals.error && <p className={ui.error}>신청 목록을 불러오지 못했습니다. {rentals.error.message}</p>}
+          {rentals.loading && !rentals.data && <p className={ui.muted}>불러오는 중…</p>}
+          {rentals.data && rentals.data.items.length === 0 && (
+            <p className={ui.empty}>{RENTAL_STATUS_LABEL[status]} 상태인 신청이 없습니다.</p>
+          )}
+          {rentals.data && rentals.data.items.length > 0 && (
+            <>
+              <table className={ui.table}>
+                <thead>
+                  <tr>
+                    <th>신청자</th>
+                    <th>물품</th>
+                    <th className={ui.num}>수량</th>
+                    <th className={ui.num}>{status === 'requested' ? '기다린 날' : '신청일'}</th>
+                    <th className={styles.actionCell}>{status === 'rejected' ? '반려 사유' : '처리'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rentals.data.items.map((r) => (
+                    <RentalRow
+                      key={r.id}
+                      rental={r}
+                      onDone={(text) => {
+                        setMessage({ ok: true, text });
+                        refreshAll();
+                      }}
+                      onError={(text, stale) => {
+                        setMessage({ ok: false, text });
+                        if (stale) refreshAll();
+                      }}
+                    />
+                  ))}
+                </tbody>
+              </table>
+              <Pagination total={rentals.data.total} limit={rentals.data.limit} offset={rentals.data.offset} onChange={setOffset} />
+            </>
+          )}
+        </section>
+
+        <section className={styles.column}>
+          <h2 className={ui.sectionTitle}>물품과 재고</h2>
+          {items.error && <p className={ui.error}>물품 목록을 불러오지 못했습니다. {items.error.message}</p>}
+          {items.data && (
             <table className={ui.table}>
               <thead>
                 <tr>
-                  <th>신청자</th>
                   <th>물품</th>
-                  <th className={ui.num}>수량</th>
-                  <th className={ui.num}>{status === 'requested' ? '기다린 날' : '신청일'}</th>
-                  <th>{status === 'rejected' ? '반려 사유' : '처리'}</th>
+                  <th className={ui.num}>남은 재고</th>
+                  <th className={ui.num}>승인 대기</th>
+                  <th className={ui.num}>수령 대기</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {rentals.data.items.map((r) => (
-                  <RentalRow
-                    key={r.id}
-                    rental={r}
-                    onDone={(text) => {
+                {items.data.items.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className={ui.muted}>
+                      등록한 물품이 없습니다. 아래에서 추가하세요.
+                    </td>
+                  </tr>
+                )}
+                {items.data.items.map((item) => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    onSaved={(text) => {
                       setMessage({ ok: true, text });
-                      refreshAll();
-                    }}
-                    onError={(text, stale) => {
-                      setMessage({ ok: false, text });
-                      if (stale) refreshAll();
+                      items.reload();
+                      rentals.reload();
                     }}
                   />
                 ))}
               </tbody>
             </table>
-            <Pagination total={rentals.data.total} limit={rentals.data.limit} offset={rentals.data.offset} onChange={setOffset} />
-          </>
-        )}
-      </section>
-
-      <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h2 className={ui.sectionTitle}>물품과 재고</h2>
-        {items.error && <p className={ui.error}>물품 목록을 불러오지 못했습니다. {items.error.message}</p>}
-        {items.data && (
-          <table className={ui.table}>
-            <thead>
-              <tr>
-                <th>물품</th>
-                <th className={ui.num}>남은 재고</th>
-                <th className={ui.num}>승인 대기</th>
-                <th className={ui.num}>수령 대기</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {items.data.items.length === 0 && (
-                <tr>
-                  <td colSpan={5} className={ui.muted}>
-                    등록한 물품이 없습니다. 아래에서 추가하세요.
-                  </td>
-                </tr>
-              )}
-              {items.data.items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  onSaved={(text) => {
-                    setMessage({ ok: true, text });
-                    items.reload();
-                    rentals.reload();
-                  }}
-                />
-              ))}
-            </tbody>
-          </table>
-        )}
-        <NewItemForm
-          onCreated={(text) => {
-            setMessage({ ok: true, text });
-            items.reload();
-          }}
-        />
-      </section>
+          )}
+          <NewItemForm
+            onCreated={(text) => {
+              setMessage({ ok: true, text });
+              items.reload();
+            }}
+          />
+        </section>
+      </div>
     </div>
   );
 }
@@ -181,7 +184,7 @@ function RentalRow({
       <td>{r.item.name}</td>
       <td className={ui.num}>{r.quantity}개</td>
       <td className={ui.num}>{r.status === 'requested' ? `${daysSince(r.createdAt)}일` : formatShortDate(r.createdAt)}</td>
-      <td>
+      <td className={styles.actionCell}>
         {r.status === 'requested' && !rejecting && (
           <div className={ui.actions}>
             <button
