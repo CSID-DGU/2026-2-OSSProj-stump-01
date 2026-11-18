@@ -45,3 +45,32 @@ export function todayLabel(now = new Date()): string {
     weekday: 'long',
   });
 }
+
+/** 'YYYY-MM-DD' 또는 ISO 시각 → '2026년 11월 3일' (한국 시간) */
+export function formatDate(value: string): string {
+  const [y, m, d] = toKoreanDate(value).split('-').map(Number);
+  return `${y}년 ${m}월 ${d}일`;
+}
+
+/** 'YYYY-MM-DD' 또는 ISO 시각 → '11월 3일' (한국 시간) */
+export function formatShortDate(value: string): string {
+  const [, m, d] = toKoreanDate(value).split('-').map(Number);
+  return `${m}월 ${d}일`;
+}
+
+/** ISO 시각 → '11월 3일 14:05' (한국 시간) */
+export function formatDateTime(iso: string): string {
+  const time = new Date(iso).toLocaleTimeString('ko-KR', {
+    timeZone: TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  });
+  return `${formatShortDate(iso)} ${time}`;
+}
+
+/** 날짜만 있는 값('YYYY-MM-DD')은 그대로, 시각이 있으면 한국 시간 날짜로 바꾼다 */
+function toKoreanDate(value: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Date(value).toLocaleDateString('sv-SE', { timeZone: TIME_ZONE });
+}

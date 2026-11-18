@@ -1,13 +1,18 @@
 // 구청 웹 공통 틀: 왼쪽 메뉴 + 오른쪽 화면. 데스크탑 레이아웃만 둔다(용어.md 목표).
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useDashboard } from '../api/dashboard';
 import { useAuth } from '../auth/AuthContext';
+import { onCountsChanged } from '../lib/counts';
 import styles from './AdminLayout.module.css';
 
 export function AdminLayout() {
   const { user, logout } = useAuth();
-  // 메뉴 옆 대기 건수와 관리청 이름은 한눈에 보기 집계(이번 달)에서 가져온다
-  const { data } = useDashboard({});
+  // 메뉴 옆 대기 건수와 관리청 이름은 한눈에 보기 집계(이번 달)에서 가져온다.
+  // 처리 화면에서 승인·반려하면 notifyCountsChanged()가 불려 건수를 다시 센다.
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => onCountsChanged(() => setReloadKey((k) => k + 1)), []);
+  const { data } = useDashboard({}, reloadKey);
 
   const menu = [
     { to: '/', label: '한눈에 보기', count: null, end: true },

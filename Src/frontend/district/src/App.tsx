@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { AdminLayout } from './layout/AdminLayout';
+import { ApplicationsPage } from './pages/ApplicationsPage';
 import { ComingSoonPage } from './pages/ComingSoonPage';
 import { DashboardPage } from './pages/DashboardPage';
 
@@ -20,7 +21,7 @@ export default function App() {
           <Route element={<RequireLogin />}>
             <Route element={<AdminLayout />}>
               <Route index element={<DashboardPage />} />
-              <Route path="applications" element={<ComingSoonPage title="돌보미 신청 심사" issue={74} />} />
+              <Route path="applications" element={<ApplicationsPage />} />
               <Route path="monthly-reports" element={<ComingSoonPage title="월간 보고서 검토" issue={75} />} />
               <Route path="rentals" element={<ComingSoonPage title="물품 지급" issue={76} />} />
               <Route path="incident-reports" element={<ComingSoonPage title="신고 처리" issue={29} />} />
