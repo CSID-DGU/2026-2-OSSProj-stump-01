@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router'
 import AppLayout from './components/AppLayout'
 import HomePage from './pages/HomePage'
+import MapPage from './pages/MapPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import RecordNewPage from './pages/RecordNewPage'
 import RecordsPage from './pages/RecordsPage'
@@ -15,10 +16,7 @@ export default function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<HomePage />} />
-          <Route
-            path="map"
-            element={<PlaceholderPage title="나무 지도" issue="#37" plan="지도에서 나무를 고르고 상세로 들어가요. 공용 지도 컴포넌트가 나오면 만들어요." />}
-          />
+          <Route path="map" element={<MapPage />} />
           <Route path="records" element={<RecordsPage />} />
           <Route
             path="group"

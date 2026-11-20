@@ -1,0 +1,37 @@
+/* #37 나무 지도. 색·간격은 styles/tokens.css 변수만 쓴다. */
+
+.map-page__head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-3); }
+.map-page__locate { flex: none; margin-top: var(--space-2); padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+
+.map-page__notice { margin: var(--space-3) 0 0; font-size: 13px; line-height: 20px; color: var(--muted); }
+.map-page__notice--error { color: var(--danger); }
+
+.map-page__stats { display: flex; gap: var(--space-6); margin-top: var(--space-4); }
+.map-page__n { font-family: var(--font-display); font-size: 36px; line-height: 1; font-weight: 700; }
+.map-page__n--small { font-size: 24px; padding-top: var(--space-2); }
+.map-page__l { margin-top: var(--space-1); font-size: 13px; color: var(--muted); }
+.map-page .tc-rows { margin-top: var(--space-4); }
+
+/* 지도 틀 (KakaoTreeMap · TreeMap 공통) */
+.map { position: relative; width: 100%; aspect-ratio: 1 / 1.1; margin-top: var(--space-3); background: var(--subtle); border: 1px solid var(--line); overflow: clip; touch-action: none; cursor: grab; user-select: none; }
+.map.dragging { cursor: grabbing; }
+.map.kakao { cursor: default; touch-action: auto; user-select: auto; }
+.map .layer { position: absolute; inset: 0; }
+.map .tiles { position: absolute; inset: 0; filter: saturate(0.3) brightness(1.04) contrast(0.88); }
+.map .tiles img { position: absolute; pointer-events: none; }
+.map .wash { position: absolute; inset: 0; background: rgba(247, 248, 244, 0.22); pointer-events: none; }
+.map svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.map .tree { fill: var(--primary); stroke: var(--surface); stroke-width: 0.4; pointer-events: none; }
+.map .tree.on { fill: var(--mark); stroke: var(--ink); }
+.map .attribution { position: absolute; right: 0; bottom: 0; padding: 1px 6px; font-size: 10px; color: var(--muted); background: rgba(247, 248, 244, 0.85); }
+.map .zoom { position: absolute; right: 10px; bottom: 24px; display: grid; gap: 3px; }
+.map .zoom button { width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 18px; line-height: 1; }
+.map-error { position: absolute; left: 10px; right: 10px; top: 10px; margin: 0; padding: var(--space-2) var(--space-3); font-size: 13px; color: var(--danger); background: var(--surface); border-left: 3px solid var(--danger); }
+
+/* 카카오맵 위의 나무 점(CustomOverlay). 확대 단계와 상관없이 같은 픽셀 크기다. */
+.tree-dot { position: relative; width: 22px; height: 22px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.tree-dot::after { content: ""; position: absolute; left: 6px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); border: 1.5px solid var(--surface); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }
+.tree-dot.on::after { left: 4px; top: 4px; width: 14px; height: 14px; background: var(--mark); border-color: var(--ink); }
+
+/* 내 위치 */
+.me-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--cold); border: 2.5px solid var(--surface); box-shadow: 0 0 0 6px rgba(79, 127, 191, 0.2), 0 1px 3px rgba(0, 0, 0, 0.3); pointer-events: none; }
