@@ -1099,6 +1099,31 @@ components:
             address: { type: [string, 'null'] }
             sameRoadCount: { type: integer, description: 같은 자치구·노선의 나무 수 }
             sameDongCount: { type: integer, description: 같은 자치구·동의 나무 수 }
+            speciesCard:
+              description: 수종별 기본 콘텐츠 카드(Src/content/species-cards.json). 상위 10종 밖이면 null. 화면에 source 문구를 함께 보여 준다
+              oneOf:
+                - { $ref: '#/components/schemas/SpeciesCard' }
+                - { type: 'null' }
+    SpeciesCard:
+      type: object
+      properties:
+        id: { type: string, example: ginkgo }
+        name: { type: string, example: 은행나무 }
+        scientificName: { type: string, example: Ginkgo biloba }
+        family: { type: string }
+        leafType: { type: string, example: 낙엽 겉씨식물 }
+        seoulCount: { type: integer, description: 서울 가로수 그루 수 }
+        rank: { type: integer, description: 서울 가로수 수종 순위 }
+        summary: { type: string }
+        features: { type: array, items: { type: string } }
+        seasons:
+          type: object
+          properties:
+            spring: { type: string }
+            summer: { type: string }
+            autumn: { type: string }
+            winter: { type: string }
+        source: { type: string, example: '수종 정보: 국립수목원 국가생물종지식정보시스템 참고' }
     Notification:
       type: object
       properties:

@@ -123,6 +123,18 @@ describe('GET /trees/:id', () => {
     });
   });
 
+  it('상위 10종 수종이면 수종 카드를 붙이고, 아니면 null', async () => {
+    const ginkgo = await createTree({ species: '은행나무 암나무' });
+    const rare = await createTree({ species: '산딸나무' });
+
+    const withCard = await request(api).get(`/trees/${ginkgo}`);
+    const withoutCard = await request(api).get(`/trees/${rare}`);
+
+    expect(withCard.body.speciesCard).toMatchObject({ id: 'ginkgo', name: '은행나무' });
+    expect(withCard.body.speciesCard.seasons.autumn).toBeTruthy();
+    expect(withoutCard.body.speciesCard).toBeNull();
+  });
+
   it('없는 나무는 404, 숫자가 아닌 id 는 400', async () => {
     expect((await request(api).get('/trees/999999')).status).toBe(404);
     expect((await request(api).get('/trees/abc')).status).toBe(400);
