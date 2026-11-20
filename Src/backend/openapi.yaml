@@ -797,6 +797,85 @@ paths:
                   reports: { type: array, items: { $ref: '#/components/schemas/MyMonthlyReport' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /rental-items:
+    get:
+      tags: [시민]
+      summary: 신청할 수 있는 물품과 재고
+      description: 내가 지금 승인된 돌보미로 있는 나무의 관리청 물품만 남은 재고와 함께 준다. 돌보미가 아니면 빈 목록. 반납·기한은 없다.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 물품 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        agency: { type: string, description: 물품을 주는 관리청 }
+                        name: { type: string, example: 쿨토시 }
+                        stock: { type: integer, description: 아직 배정하지 않은 재고 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /rentals:
+    post:
+      tags: [시민]
+      summary: 물품 신청
+      description: |
+        '신청'(requested) 상태로 만들고 그 관리청의 물품 처리 목록에 들어간다. 재고는 구청이 승인할 때 줄인다.
+        그 관리청 나무의 승인된 돌보미만(403), 한 번에 5개까지(임시값). 남은 재고보다 많거나 같은 물품에 처리 중인 신청이 있으면 409.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [itemId]
+              properties:
+                itemId: { type: integer }
+                quantity: { type: integer, minimum: 1, maximum: 5, default: 1 }
+      responses:
+        '201':
+          description: 만든 신청
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyRental' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 시민 계정이 아니거나 그 관리청 나무의 승인된 돌보미가 아님
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: 재고 부족 또는 같은 물품에 처리 중인 신청이 있음
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /rentals/me:
+    get:
+      tags: [시민]
+      summary: 내 물품 신청 현황 (최신순)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 내 신청
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rentals: { type: array, items: { $ref: '#/components/schemas/MyRental' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -1080,6 +1159,23 @@ components:
         submittedAt: { type: string, format: date-time }
         reviewedAt: { type: [string, 'null'], format: date-time }
         volunteerMinutes: { type: [integer, 'null'], description: 승인되어 기록된 봉사시간(분). 승인 전 null }
+    MyRental:
+      type: object
+      description: 시민이 보는 내 물품 신청
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [requested, approved, rejected, received], description: 신청 / 승인 / 반려 / 수령 }
+        quantity: { type: integer }
+        item:
+          type: object
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            agency: { type: string }
+        rejectReason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        handledAt: { type: [string, 'null'], format: date-time, description: 구청이 승인·반려한 시각 }
+        receivedAt: { type: [string, 'null'], format: date-time }
     MonthlyReport:
       type: object
       properties:
