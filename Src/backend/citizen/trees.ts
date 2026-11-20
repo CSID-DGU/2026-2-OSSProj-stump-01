@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { getPool } from '../common/db.js';
 import { badRequest, notFound } from '../common/errors.js';
+import { findSpeciesCard, type SpeciesCard } from './species-cards.js';
 
 // ── 기준값 ──
 const DEFAULT_LIMIT = 500; // 한 번에 내려 주는 나무 수
@@ -47,6 +48,7 @@ export type TreeDetailView = TreeView & {
   address: string | null;
   sameRoadCount: number; // 같은 자치구·노선의 나무 수
   sameDongCount: number; // 같은 자치구·동의 나무 수
+  speciesCard: SpeciesCard | null; // 수종별 기본 콘텐츠 카드. 상위 10종 밖이면 null
 };
 
 type TreeRow = {
@@ -122,6 +124,7 @@ treesRouter.get('/:id', async (req, res) => {
     address: row.address,
     sameRoadCount: row.same_road_count,
     sameDongCount: row.same_dong_count,
+    speciesCard: findSpeciesCard(row.species),
   };
   res.json(view);
 });
