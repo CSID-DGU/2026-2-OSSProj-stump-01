@@ -436,8 +436,8 @@ CREATE TABLE public.schema_migrations (
 
 CREATE TABLE public.stories (
     id bigint NOT NULL,
-    tree_name text NOT NULL,
-    body text NOT NULL,
+    tree_name text,
+    body text,
     photo_url text,
     is_public boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -472,6 +472,7 @@ CREATE TABLE public.story_entries (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     user_id bigint NOT NULL,
     author_display text DEFAULT 'nickname'::text NOT NULL,
+    is_public boolean DEFAULT true NOT NULL,
     CONSTRAINT story_entries_author_display_check CHECK ((author_display = ANY (ARRAY['real_name'::text, 'nickname'::text])))
 );
 
@@ -1312,4 +1313,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20261112180000'),
     ('20261112190000'),
     ('20261117120000'),
-    ('20261120120000');
+    ('20261120120000'),
+    ('20261120150000');

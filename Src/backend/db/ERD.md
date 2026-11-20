@@ -173,10 +173,10 @@ erDiagram
     stories {
         bigint id PK
         bigint tree_id FK,UK "나무별 공동 이야기"
-        varchar tree_name "나무에 붙인 이름"
-        text body
+        varchar tree_name "나무에 붙인 이름 (선택)"
+        text body "(선택)"
         varchar photo_url "대표 사진"
-        boolean is_public
+        boolean is_public "쓰지 않음 (글마다 story_entries.is_public)"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -186,6 +186,7 @@ erDiagram
         bigint story_id FK
         bigint user_id FK "덧붙인 돌보미"
         varchar author_display "real_name | nickname"
+        boolean is_public "글쓴 돌보미가 고름. false 면 QR 페이지에 안 나옴"
         text body
         varchar photo_url
         timestamptz created_at
@@ -283,7 +284,7 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - **상태 전이**: `reports`는 `inspected_at` 없이 `inspecting`/`resolved`가 될 수 없고, `resolved`일 때만 `resolved_at`이 있다. 신청서·보고서·물품도 승인·반려 상태면 처리한 담당자와 시각이 있어야 하고, 반려는 사유, 보완 요청은 의견이 있어야 한다.
 - **신뢰도**: `is_trusted`는 신고할 때의 교육 이수 여부를 복사해 둔다. 나중에 이수하더라도 그전 신고의 신뢰도는 바뀌지 않는다.
 - **물품 재고**: `rental_items.stock`은 "아직 배정하지 않은 수량"이고 0 아래로 내려갈 수 없다(CHECK). 구청-BE는 **승인할 때** 신청 수량만큼 줄이고(배정), 수령은 상태만 바꾼다. 그래서 재고보다 많이 승인할 수 없다. 승인·재고 차감·알림은 한 트랜잭션이고, 신청과 물품 행을 함께 잠가 동시에 승인해도 재고가 음수가 되지 않는다. 반려 사유(`reject_reason`, #70)는 선택 입력이다.
-- **공동 이야기**: 이야기는 나무당 하나(`stories.tree_id` 유니크)이고, 여러 돌보미가 `story_entries`로 글을 덧붙인다. 실명/별명 선택(`author_display`)은 글마다 글쓴 돌보미가 한다.
+- **공동 이야기**: 이야기는 나무당 하나(`stories.tree_id` 유니크)이고, 여러 돌보미가 `story_entries`로 글을 덧붙인다. 실명/별명 선택(`author_display`)과 공개 여부(`is_public`, 마이그레이션 20261120150000)는 글마다 글쓴 돌보미가 한다. `stories`는 묶음이라 `tree_name`·`body`는 비워 둘 수 있고, `stories.is_public`은 쓰지 않는다.
 - **받은 호응**: 로그인 없이 남기므로 `device_key`로 기기를 구분한다. 같은 기기는 글 하나에 하루 한 번만 남길 수 있게 `(story_entry_id, device_key, reacted_on)`에 유니크 제약을 건다. `reacted_on`은 한국 날짜 기준이다. 한 줄 응답은 80자까지다.
 - **단체 관리자**: `users.role`이 아니라 `organization_members.role = 'admin'`으로 판단한다. 단체 관리자도 자기 나무를 돌보는 돌보미다.
 - **위치**: `geography(Point, 4326)`을 쓴다. 위치 확인 거리는 `ST_DWithin`, 지도 범위 조회는 공간 인덱스(GiST)로 처리한다.
