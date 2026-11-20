@@ -1,5 +1,6 @@
 // API 에러 응답 형식: { "error": { "code": "...", "message": "..." } }
 import type { ErrorRequestHandler, RequestHandler } from 'express';
+import multer from 'multer';
 import { ZodError } from 'zod';
 
 export class HttpError extends Error {
@@ -31,6 +32,11 @@ export const routeNotFound: RequestHandler = (_req, _res, next) => {
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof HttpError) {
     res.status(err.status).json({ error: { code: err.code, message: err.message } });
+    return;
+  }
+  // 사진 업로드 제한(장 수·크기)에 걸림
+  if (err instanceof multer.MulterError) {
+    res.status(400).json({ error: { code: 'UPLOAD_ERROR', message: `사진을 받을 수 없다: ${err.message}` } });
     return;
   }
   if (err instanceof ZodError) {

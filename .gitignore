@@ -46,3 +46,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# ── 시민이 올린 사진 (개발용) ──
+Src/backend/uploads/

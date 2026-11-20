@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
@@ -13,6 +15,8 @@ if (process.env.POSTGRES_DB === devDb) {
   throw new Error('테스트 DB 이름이 개발 DB와 같다. 테스트가 DB를 지우고 다시 만들므로 다른 이름을 쓴다.');
 }
 process.env.JWT_SECRET ??= 'test-secret';
+// 테스트가 올린 사진은 개발용 uploads 폴더가 아니라 임시 폴더에 쌓는다
+process.env.UPLOAD_DIR = join(tmpdir(), 'treecare-test-uploads');
 
 export default defineConfig({
   test: {
