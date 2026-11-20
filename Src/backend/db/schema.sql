@@ -247,6 +247,34 @@ ALTER TABLE public.organizations ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
+-- Name: record_photos; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.record_photos (
+    id bigint NOT NULL,
+    record_id bigint NOT NULL,
+    url text NOT NULL,
+    "position" smallint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT record_photos_position_check CHECK ((("position" >= 1) AND ("position" <= 3)))
+);
+
+
+--
+-- Name: record_photos_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.record_photos ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.record_photos_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: records; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -719,6 +747,22 @@ ALTER TABLE ONLY public.organizations
 
 
 --
+-- Name: record_photos record_photos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.record_photos
+    ADD CONSTRAINT record_photos_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: record_photos record_photos_record_id_position_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.record_photos
+    ADD CONSTRAINT record_photos_record_id_position_key UNIQUE (record_id, "position");
+
+
+--
 -- Name: records records_id_type_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1116,6 +1160,14 @@ ALTER TABLE ONLY public.organization_members
 
 
 --
+-- Name: record_photos record_photos_record_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.record_photos
+    ADD CONSTRAINT record_photos_record_id_fkey FOREIGN KEY (record_id) REFERENCES public.records(id) ON DELETE CASCADE;
+
+
+--
 -- Name: records records_monthly_report_fk; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1259,4 +1311,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20261112120000'),
     ('20261112180000'),
     ('20261112190000'),
-    ('20261117120000');
+    ('20261117120000'),
+    ('20261120120000');
