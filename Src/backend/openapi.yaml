@@ -876,6 +876,86 @@ paths:
                   rentals: { type: array, items: { $ref: '#/components/schemas/MyRental' } }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /trees/{id}/story:
+    get:
+      tags: [시민]
+      summary: 나무별 공동 이야기 (QR 이야기 페이지, 로그인 없음)
+      description: 그 나무의 돌보미들이 덧붙인 글 중 공개 글만 오래된 순으로 준다. 글쓴이는 본인이 고른 별명 또는 실명으로만 보인다. 이야기가 없으면 빈 목록.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 이야기
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  treeId: { type: integer }
+                  entries: { type: array, items: { $ref: '#/components/schemas/StoryEntry' } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /trees/{id}/story/entries:
+    post:
+      tags: [시민]
+      summary: 이야기 덧붙이기
+      description: 그 나무의 승인된 돌보미(오늘이 활동 기간 안)만 쓴다(403). 나무의 이야기가 없으면 같이 만든다. 실명을 고르려면 실명이 등록되어 있어야 한다(400).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 1000 }
+                authorDisplay: { type: string, enum: [nickname, real_name], default: nickname, description: 별명 / 실명 }
+                isPublic: { type: boolean, default: true, description: false 면 QR 이야기 페이지에 나오지 않는다 }
+      responses:
+        '201':
+          description: 덧붙인 글
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryEntry' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 시민 계정이 아니거나 이 나무의 승인된 돌보미가 아님
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /story-entries/{id}:
+    get:
+      tags: [시민]
+      summary: 이야기 글 하나 (로그인 없음)
+      description: 나이테의 이야기 표식에서 글 하나로 이동할 때 쓴다. 비공개 글은 404.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 글과 나무
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/StoryEntry' }
+                  - type: object
+                    properties:
+                      tree:
+                        type: object
+                        properties:
+                          id: { type: integer }
+                          code: { type: [string, 'null'] }
+                          species: { type: string }
+                          district: { type: string }
+                          roadName: { type: [string, 'null'] }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -1176,6 +1256,21 @@ components:
         createdAt: { type: string, format: date-time }
         handledAt: { type: [string, 'null'], format: date-time, description: 구청이 승인·반려한 시각 }
         receivedAt: { type: [string, 'null'], format: date-time }
+    StoryEntry:
+      type: object
+      description: 공동 이야기에 덧붙인 글 하나
+      properties:
+        id: { type: integer }
+        body: { type: string }
+        isPublic: { type: boolean }
+        author:
+          type: object
+          description: 글쓴 돌보미가 고른 이름만. 다른 신원 정보는 주지 않는다
+          properties:
+            displayName: { type: string, example: 은행지기 }
+        likeCount: { type: integer, description: 받은 좋아요 수 }
+        replyCount: { type: integer, description: 받은 한 줄 응답 수 }
+        createdAt: { type: string, format: date-time }
     MonthlyReport:
       type: object
       properties:
