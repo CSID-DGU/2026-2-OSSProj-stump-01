@@ -707,6 +707,96 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /monthly-reports/dates:
+    get:
+      tags: [시민]
+      summary: 월간 보고서 달력용 날짜
+      description: 고른 달에서 보고서에 아직 안 넣은 활동 기록이 있는 날(openDates)과, 기록을 모두 제출한 날(submittedDates).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: month, in: query, required: true, schema: { type: string, example: 2026-11 } }
+      responses:
+        '200':
+          description: 날짜 목록
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  month: { type: string }
+                  openDates: { type: array, items: { type: string, format: date } }
+                  submittedDates: { type: array, items: { type: string, format: date } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /monthly-reports/draft:
+    get:
+      tags: [시민]
+      summary: 월간 보고서 미리보기
+      description: |
+        고른 날짜의, 보고서에 아직 안 넣은 활동 기록을 양식 순서(fields)로 채우고 활동 시간을 더한다. 저장하지 않는다.
+        agencies 가 둘 이상이면 관리청이 섞인 것이라 제출할 수 없다. 양식 항목은 구청 양식 확인 전 임시값(#59).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: dates, in: query, required: true, description: 쉼표로 구분한 같은 달 날짜, schema: { type: string, example: '2026-11-03,2026-11-05' } }
+      responses:
+        '200':
+          description: 보고서 초안
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MonthlyReportDraft' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /monthly-reports:
+    post:
+      tags: [시민]
+      summary: 월간 보고서 제출
+      description: |
+        고른 날짜(같은 달)의 안 넣은 활동 기록을 묶어 '검토 대기'(submitted) 보고서를 만들고, 기록에 보고서 번호를 채운다(다시 고를 수 없음).
+        보고서는 그 나무 관리청의 검토 대기 목록(/admin/monthly-reports)에 들어간다. 시민 계정만 쓸 수 있다.
+        묶을 기록이 없거나(이미 냈음), 관리청이 다른 나무가 섞이거나, 달이 섞이면 400.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dates]
+              properties:
+                dates: { type: array, items: { type: string, format: date }, minItems: 1, maxItems: 31 }
+      responses:
+        '201':
+          description: 제출한 보고서
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MyMonthlyReport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 시민 계정이 아님
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /monthly-reports/me:
+    get:
+      tags: [시민]
+      summary: 내 월간 보고서 (최신순)
+      description: 내가 낸 보고서와 구청 검토 결과(상태·의견·승인되어 기록된 봉사시간).
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 내 보고서
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports: { type: array, items: { $ref: '#/components/schemas/MyMonthlyReport' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -953,6 +1043,43 @@ components:
             district: { type: string }
             dong: { type: [string, 'null'] }
             roadName: { type: [string, 'null'] }
+    MonthlyReportDraft:
+      type: object
+      properties:
+        fields:
+          type: array
+          description: 양식 칸 순서와 이름 (Src/backend/citizen/monthly-report-form.ts)
+          items:
+            type: object
+            properties:
+              key: { type: string, enum: [date, treeName, activities, minutes, photoCount, note] }
+              label: { type: string, example: 날짜 }
+        rows:
+          type: array
+          description: 날짜순, 같은 날이면 나무 이름순
+          items:
+            type: object
+            properties:
+              recordId: { type: integer }
+              values: { type: object, description: 'fields 의 key → 칸 값. 예 { date: 2026-11-03, treeName: 은행나무, 명동길, activities: 쓰레기 줍기, 보호틀 정리, minutes: 30, photoCount: 2, note: 낙엽 }' }
+        dates: { type: array, items: { type: string, format: date } }
+        totalMinutes: { type: integer }
+        treeCount: { type: integer }
+        agencies: { type: array, items: { type: string }, description: 관리청. 둘 이상이면 제출할 수 없다 }
+    MyMonthlyReport:
+      type: object
+      description: 시민이 보는 내 월간 보고서
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [submitted, approved, revision_requested], description: 검토 대기 / 승인 / 보완 요청 }
+        agency: { type: string, description: 낸 관리청 }
+        totalMinutes: { type: integer, description: 묶인 기록의 활동 시간 합계 }
+        dates: { type: array, items: { type: string, format: date } }
+        recordCount: { type: integer }
+        reviewNote: { type: [string, 'null'], description: 구청 의견 (보완 요청 사유 등) }
+        submittedAt: { type: string, format: date-time }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        volunteerMinutes: { type: [integer, 'null'], description: 승인되어 기록된 봉사시간(분). 승인 전 null }
     MonthlyReport:
       type: object
       properties:

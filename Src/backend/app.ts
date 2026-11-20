@@ -10,6 +10,7 @@ import { getPool } from './common/db.js';
 import { errorHandler, routeNotFound } from './common/errors.js';
 import { applicationsRouter } from './citizen/applications.js';
 import { authRouter } from './citizen/auth.js';
+import { monthlyReportsRouter } from './citizen/monthly-reports.js';
 import { notificationsRouter } from './citizen/notifications.js';
 import { recordsRouter } from './citizen/records.js';
 import { treesRouter } from './citizen/trees.js';
@@ -41,6 +42,7 @@ export function createApp() {
   app.use('/notifications', notificationsRouter); // #7 알림
   app.use('/applications', applicationsRouter); // #6 돌보미 신청서
   app.use('/records', recordsRouter); // #5 활동 기록·이상 신고
+  app.use('/monthly-reports', monthlyReportsRouter); // #62 월간 보고서 작성·제출
   // 시민이 올린 사진 (common/uploads.ts). 파일 이름이 무작위라 주소를 아는 사람만 본다
   app.use('/uploads', express.static(uploadDir()));
 
