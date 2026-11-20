@@ -31,6 +31,7 @@ erDiagram
     monthly_reports ||--o{ records : "모은다"
     monthly_reports ||--o| volunteer_hours : "승인 시 기록"
     records ||--o| reports : "신고 상세"
+    records ||--o{ record_photos : "사진 (최대 3장)"
     rental_items ||--o{ rentals : "지급한다"
     organizations ||--o{ organization_members : "소속"
 
@@ -93,13 +94,21 @@ erDiagram
         varchar type "activity | report"
         timestamptz recorded_at
         date activity_date "활동한 날"
-        varchar activity_kind "활동 선택 항목"
+        varchar activity_kind "한 일. 여러 개면 쉼표+공백으로 이음"
         int duration_min "활동 시간(분)"
         text memo
-        varchar photo_url
+        varchar photo_url "첫 사진 (전체는 record_photos)"
         geography location "기록한 위치, Point"
         varchar verification "none | location | photo"
         bigint monthly_report_id FK "제출되면 채움"
+        timestamptz created_at
+    }
+
+    record_photos {
+        bigint id PK
+        bigint record_id FK
+        text url "/uploads/파일이름"
+        smallint position "1~3, 올린 순서"
         timestamptz created_at
     }
 
@@ -301,6 +310,13 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - 활동 기간은 양식대로 1년 기본이다. 시민은 시작일만 고르고 `period_end`는 서버가 시작일 + 1년 전날로 정한다.
 - 이 마이그레이션 전에 만든 신청서가 있어서 새 칸은 NULL을 허용한다. 필수 여부는 시민-BE API(zod)가 검사한다.
 - 여러 그루를 한 번에 내면 양식 항목은 그루마다 같은 값이 들어간다.
+
+## 기록 사진 `record_photos` (마이그레이션 20261120120000_record_photos, #5)
+
+- 시민 웹은 활동 기록·이상 신고 하나에 사진을 3장까지 올린다. 파일은 백엔드 `uploads` 폴더(`UPLOAD_DIR`)에 무작위 이름으로 두고, DB에는 주소(`/uploads/파일이름`)만 남긴다.
+- `records.photo_url`에는 첫 사진을 계속 넣는다. 구청 신고 큐·보고서 검토가 그 칸을 읽기 때문이다.
+- 기록을 지우면 사진 행도 같이 지워진다(`ON DELETE CASCADE`). 파일 정리는 아직 없다.
+- '한 일'을 여러 개 고르면 `records.activity_kind`에 `, `로 이어 저장한다. 그래서 한 일 이름에는 쉼표를 쓸 수 없다.
 
 ## 가로수 원본 데이터 (#18)
 

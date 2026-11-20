@@ -1,5 +1,6 @@
 // 환경변수(Src/.env)를 한곳에서 읽는다. 필요한 변수 이름은 Src/.env.example에 있다.
 // 실행 스크립트(npm run dev/start)가 node --env-file=../.env로 .env를 읽어 둔다.
+import { fileURLToPath } from 'node:url';
 
 function required(name: string): string {
   const value = process.env[name];
@@ -20,6 +21,11 @@ export function databaseUrl(): string {
 
 export function jwtSecret(): string {
   return required('JWT_SECRET');
+}
+
+/** 시민이 올린 사진을 저장하는 폴더. 기본은 Src/backend/uploads (git에 올리지 않는다). */
+export function uploadDir(): string {
+  return process.env.UPLOAD_DIR ?? fileURLToPath(new URL('../uploads', import.meta.url));
 }
 
 export function port(): number {
