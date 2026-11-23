@@ -62,6 +62,18 @@ export function formatRelative(iso: string): string {
   return formatShortDate(toDateKey(then))
 }
 
+// 활동 종료일: 시작일부터 years년 뒤의 전날 (서버와 같은 규칙). 예: 2026-12-01 → 2027-11-30
+export function periodEndOf(start: string, years: number): string {
+  const [y, m, d] = start.split('-').map(Number)
+  return toDateKey(new Date(y + years, m - 1, d - 1))
+}
+
+// "2026-12-01" → "2026년 12월 1일"
+export function formatLongDate(key: string): string {
+  const [y, m, d] = key.split('-').map(Number)
+  return `${y}년 ${m}월 ${d}일`
+}
+
 // 이번 달은 며칠까지 있는지
 export function daysInThisMonth(): number {
   const now = new Date()

@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router'
 import AppLayout from './components/AppLayout'
+import ApplyPage from './pages/ApplyPage'
+import MyApplicationsPage from './pages/MyApplicationsPage'
 import RequireLogin from './components/RequireLogin'
 import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
@@ -53,6 +55,8 @@ export default function App() {
           <Route path="reports/new" element={<ReportWritePage />} />
           <Route path="volunteer-hours" element={<VolunteerHoursPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="apply" element={<ApplyPage />} />
+          <Route path="applications" element={<MyApplicationsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

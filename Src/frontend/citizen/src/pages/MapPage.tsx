@@ -8,7 +8,12 @@ import KakaoTreeMap from '../components/KakaoTreeMap'
 import TreeMap from '../components/TreeMap'
 import { api, ApiError, type Bbox, type Tree } from '../lib/api'
 import { KAKAO_MAP_KEY } from '../lib/kakao'
+import { MAX_TREES } from '../content/applicationForm'
+import { addToCart, removeFromCart, useApplyCart } from '../store/applyCart'
 import './MapPage.css'
+
+// 지도에 보이는 나무 이름 (노선 → 동 → 자치구 중 있는 것)
+const placeOf = (t: Tree) => t.roadName ?? t.dong ?? t.district
 
 // 처음 보여 주는 범위: 중구 명동 일대 (가로·세로 약 700m). 이 크기면 나무가 2000그루를 넘지 않는다.
 const DEFAULT_BBOX: Bbox = [126.98, 37.56, 126.988, 37.567]
@@ -26,6 +31,7 @@ export default function MapPage() {
   const [error, setError] = useState<string | null>(null)
   const [loadedBbox, setLoadedBbox] = useState<Bbox | null>(null) // 마지막으로 응답을 받은 범위
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null)
+  const cart = useApplyCart() // 돌보미 신청할 나무 (#40)
   const useKakao = Boolean(KAKAO_MAP_KEY)
   const loading = loadedBbox !== bbox // 지금 범위의 응답을 아직 못 받았으면 불러오는 중
 
@@ -140,10 +146,29 @@ export default function MapPage() {
         <div className="tc-rows">
           <Link className="tc-tree tc-row" to={`/trees/${selected.id}`}>
             <span className="tc-tree__name">
-              {selected.species}, {selected.roadName ?? selected.dong ?? selected.district}
+              {selected.species}, {placeOf(selected)}
             </span>
             <span className="tc-tree__meta">{selected.code ?? `${selected.district} ${selected.dong ?? ''}`} · 자세히</span>
           </Link>
+          {/* #40 돌보미 신청: 이 나무를 신청 목록에 담거나 뺀다 */}
+          <div className="tc-choices__list map-page__apply">
+            {cart.some((t) => t.id === selected.id) ? (
+              <button type="button" className="tc-choice" aria-pressed="true" onClick={() => removeFromCart(selected.id)}>
+                신청 목록에 담음 · 빼기
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="tc-choice"
+                disabled={cart.length >= MAX_TREES}
+                onClick={() =>
+                  addToCart({ id: selected.id, species: selected.species, place: placeOf(selected), district: selected.district, code: selected.code })
+                }
+              >
+                {cart.length >= MAX_TREES ? `한 번에 ${MAX_TREES}그루까지 신청할 수 있어요` : '돌보미 신청할 나무로 담기'}
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="map-page__stats">
@@ -157,6 +182,16 @@ export default function MapPage() {
               <div className="map-page__l">{species}</div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* #40 담은 나무가 있으면 신청서로 가는 줄 */}
+      {cart.length > 0 && (
+        <div className="tc-rows">
+          <Link className="tc-row map-page__cart" to="/apply">
+            <span className="label-lg">돌보미 신청서 쓰기</span>
+            <span className="tc-row__value">{cart.length}그루 담음</span>
+          </Link>
         </div>
       )}
     </div>

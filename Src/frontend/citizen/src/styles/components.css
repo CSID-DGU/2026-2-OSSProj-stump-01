@@ -323,3 +323,6 @@ textarea.tc-field__input {
 
 /* 소제목 (화면 안 묶음 이름) */
 .tc-section-title { font-size: 16px; font-weight: 500; line-height: 24px; }
+
+/* ---- #40에서 추가 ---- */
+.tc-choice:disabled { color: var(--muted); cursor: default; }
