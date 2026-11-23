@@ -1,6 +1,7 @@
 // #4 나무 조회 (지도·상세·QR). 로그인 없이 쓴다.
 import { Router } from 'express';
 import { z } from 'zod';
+import { careGapSql, type CareGap } from '../common/care-gaps.js';
 import { getPool } from '../common/db.js';
 import { badRequest, notFound } from '../common/errors.js';
 import { findSpeciesCard, type SpeciesCard } from './species-cards.js';
@@ -41,6 +42,7 @@ export type TreeView = {
   roadName: string | null;
   caregiverCount: number; // 승인된 돌보미 수
   hasOpenReport: boolean; // 미처리(조치 완료 전) 이상 신고가 있는지
+  careGap: CareGap | null; // 관리 사각지대(#22): 돌보미 없음 / 이번 달 활동 끊김. 지도에 "관리가 필요한 나무"로 보여 준다
 };
 
 export type TreeDetailView = TreeView & {
@@ -62,6 +64,7 @@ type TreeRow = {
   road_name: string | null;
   caregiver_count: number;
   has_open_report: boolean;
+  care_gap: CareGap | null;
 };
 
 type TreeDetailRow = TreeRow & { agency: string; address: string | null; same_road_count: number; same_dong_count: number };
@@ -72,7 +75,8 @@ const SELECT_TREE = `
          t.district, t.dong, t.road_name,
          (SELECT count(*)::int FROM caregiver_applications a WHERE a.tree_id = t.id AND a.status = 'approved') AS caregiver_count,
          EXISTS (SELECT 1 FROM reports r JOIN records rc ON rc.id = r.record_id
-                 WHERE rc.tree_id = t.id AND r.status <> 'resolved') AS has_open_report`;
+                 WHERE rc.tree_id = t.id AND r.status <> 'resolved') AS has_open_report,
+         ${careGapSql('t')} AS care_gap`;
 
 function toView(r: TreeRow): TreeView {
   return {
@@ -85,6 +89,7 @@ function toView(r: TreeRow): TreeView {
     roadName: r.road_name,
     caregiverCount: r.caregiver_count,
     hasOpenReport: r.has_open_report,
+    careGap: r.care_gap,
   };
 }
 

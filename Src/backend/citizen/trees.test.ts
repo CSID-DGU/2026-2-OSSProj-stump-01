@@ -2,7 +2,7 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
 import { closePool, getPool } from '../common/db.js';
-import { createApplication, createTree, createUser, resetData } from '../test/fixtures.js';
+import { createActivity, createApplication, createTree, createUser, resetData } from '../test/fixtures.js';
 import { parseBbox } from './trees.js';
 
 const api = createApp();
@@ -70,6 +70,30 @@ describe('GET /trees', () => {
     );
     const resolved = await request(api).get(`/trees?bbox=${BBOX}`);
     expect(resolved.body.trees[0].hasOpenReport).toBe(false);
+  });
+
+  it('관리 사각지대 상태(careGap)를 이번 달 기준으로 준다 (#22)', async () => {
+    // 날짜에 흔들리지 않게 오늘(한국 시간)을 기준으로 활동 기간과 활동일을 잡는다
+    const { rows } = await getPool().query<{ today: string; start: string; end: string }>(
+      `SELECT to_char(d, 'YYYY-MM-DD') AS today, to_char(d - 30, 'YYYY-MM-DD') AS start, to_char(d + 30, 'YYYY-MM-DD') AS end
+       FROM (SELECT (now() AT TIME ZONE 'Asia/Seoul')::date AS d) x`,
+    );
+    const { today, start, end } = rows[0]!;
+    const officer = await createUser({ role: 'officer' });
+    const citizen = await createUser();
+    const [none, pendingOnly, inactive, active] = [await createTree(), await createTree(), await createTree(), await createTree()];
+    await createApplication({ userId: citizen.id, treeId: pendingOnly, periodStart: start, periodEnd: end }); // 대기 중은 돌보미가 아니다
+    for (const treeId of [inactive, active]) {
+      await createApplication({ userId: citizen.id, treeId, status: 'approved', reviewedBy: officer.id, periodStart: start, periodEnd: end });
+    }
+    await createActivity({ userId: citizen.id, treeId: active, date: today });
+
+    const res = await request(api).get(`/trees?bbox=${BBOX}`);
+    const gapOf = (id: number) => res.body.trees.find((t: { id: number }) => t.id === id).careGap;
+    expect([gapOf(none), gapOf(pendingOnly), gapOf(inactive), gapOf(active)]).toEqual(['no_caregiver', 'no_caregiver', 'inactive', null]);
+
+    const detail = await request(api).get(`/trees/${inactive}`);
+    expect(detail.body.careGap).toBe('inactive');
   });
 
   it('district 를 주면 그 구만, limit 에 걸리면 truncated', async () => {
