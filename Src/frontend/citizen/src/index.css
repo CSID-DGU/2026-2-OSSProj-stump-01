@@ -116,3 +116,11 @@ img {
     display: none !important;
   }
 }
+
+/* 홈의 새 알림 행 (#41) */
+.home-notice {
+  color: inherit;
+  text-decoration: none;
+  min-height: var(--tap-target);
+  align-items: center;
+}

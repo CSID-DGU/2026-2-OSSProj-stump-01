@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router'
 import PageTitle from '../components/PageTitle'
 import { myTrees, thisMonth } from '../mocks/sample'
 import { countRecordDaysThisMonth, useRecords } from '../store/recordStore'
 import { todayKey } from '../lib/date'
+import { refreshNotifications, useNotifications } from '../store/notificationStore'
 
 // 기록이 며칠 끊기면 빨간 글씨로 보여 줄지 정하는 기준 (임시값, 팀 확정 전)
 const QUIET_DAYS = 7
@@ -13,12 +15,24 @@ export default function HomePage() {
   const records = useRecords()
   const recordDays = countRecordDaysThisMonth(records)
   const today = todayKey()
+  const { unreadCount } = useNotifications()
+
+  // 새 알림이 있으면 맨 위에 알려 준다 (#41)
+  useEffect(() => {
+    refreshNotifications()
+  }, [])
 
   return (
     <div className="page">
       <PageTitle title={`이번 달 ${recordDays}일 기록했어요`} description="과거 기록과 이야기·응답 숫자는 예시 데이터예요." />
 
       <div className="tc-rows">
+        {unreadCount > 0 && (
+          <Link className="tc-row home-notice" to="/notifications">
+            <span>알림</span>
+            <span className="tc-row__value">새 알림 {unreadCount}개</span>
+          </Link>
+        )}
         <div className="tc-row">
           <span>덧붙인 이야기</span>
           <span className="tc-row__value">

@@ -49,6 +49,19 @@ export function formatShortDate(key: string): string {
   return `${m}월 ${d}일`
 }
 
+// 알림 시각: "방금", "15분 전", "3시간 전", "어제", "11월 20일"
+export function formatRelative(iso: string): string {
+  const then = new Date(iso)
+  const minutes = Math.floor((Date.now() - then.getTime()) / 60000)
+  if (minutes < 1) return '방금'
+  if (minutes < 60) return `${minutes}분 전`
+  if (minutes < 60 * 24 && toDateKey(then) === todayKey()) return `${Math.floor(minutes / 60)}시간 전`
+  const yesterday = new Date()
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (toDateKey(then) === toDateKey(yesterday)) return '어제'
+  return formatShortDate(toDateKey(then))
+}
+
 // 이번 달은 며칠까지 있는지
 export function daysInThisMonth(): number {
   const now = new Date()
