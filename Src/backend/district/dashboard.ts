@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { officerOf } from '../common/auth.js';
 import { getPool, type Db } from '../common/db.js';
+import { countCareGaps } from './care-gaps.js';
 
 // ── 기준값 ──
 const TIME_ZONE = 'Asia/Seoul'; // "이달"은 한국 시간 달력 기준
@@ -37,6 +38,7 @@ export type Dashboard = {
     missingReportList: { userId: number; nickname: string; realName: string | null; treeCount: number }[];
   };
   volunteerHours: { minutes: number; people: number }; // 이달 승인되어 기록된 봉사시간
+  careGaps: { noCaregiver: number; inactive: number }; // 관리 사각지대(#22). 나무 기준이라 단체 필터를 받지 않는다
   organizations: { id: number; name: string }[]; // 단체 필터에 보여 줄 단체(이 관리청 나무를 돌보는 회원이 있는 단체)
 };
 
@@ -115,7 +117,9 @@ export async function loadDashboard(
     [opts.agency],
   );
 
-  const [c, cg, orgs] = await Promise.all([counts, caregivers, organizations]);
+  const careGaps = countCareGaps(db, { agency: opts.agency, month: opts.month });
+
+  const [c, cg, orgs, gaps] = await Promise.all([counts, caregivers, organizations, careGaps]);
   const row = c.rows[0];
   const missing = cg.rows.filter((r) => !r.submitted);
 
@@ -142,6 +146,7 @@ export async function loadDashboard(
       })),
     },
     volunteerHours: { minutes: row.volunteer_minutes, people: row.volunteer_people },
+    careGaps: gaps,
     organizations: orgs.rows,
   };
 }
