@@ -40,11 +40,16 @@
 
 - DB: PostgreSQL 17 + PostGIS (Docker Compose), 마이그레이션은 dbmate(SQL 파일)
 - 공공데이터 수집: Python 3 스크립트, 테스트는 unittest. 외부 데이터는 서울 열린데이터광장 가로수 위치(OA-22904), 기상청 ASOS 일자료(서울 108)
+- 오늘의 날씨: 기상청 단기예보·기상특보 API를 백엔드가 호출한다(`GET /weather/today`). ASOS와 같은 `KMA_SERVICE_KEY`를 쓴다
 - 백엔드: Node.js(22 이상) + TypeScript, Express 5, REST API(JSON), 서버 하나에 모듈 분리. API 명세는 `Src/backend/openapi.yaml`(Swagger UI `/docs`)
   - DB 접근은 `pg`로 SQL을 직접 쓴다(ORM 없음). 요청 검증 `zod`, 인증 JWT(`jsonwebtoken`), 테스트 Vitest + Supertest(테스트 전용 DB `treecare_test`)
-- 시민 웹: 모바일 웹(PWA). 네이티브 앱은 만들지 않는다. 나이테: D3.js
+- 프론트: React 19 + TypeScript + Vite, 화면 이동은 React Router. 시민 웹과 구청 웹은 따로 빌드한다
+  - 시민 웹(`Src/frontend/citizen`): 모바일 웹(PWA). 네이티브 앱은 만들지 않는다. 나이테: D3.js
+  - 구청 웹(`Src/frontend/district`)
+  - 두 웹의 Vite·React Router·TypeScript 버전이 다르다. 공용 지도 컴포넌트(#27)를 만들 때 맞춘다
+- 지도: 카카오맵 JavaScript API. 키는 `Src/.env`의 `VITE_KAKAO_MAP_KEY`(등록한 도메인에서만 동작하는 공개용 키)
 
-결정 대기(#52): 프론트 React, 지도 API(카카오맵 또는 네이버 지도), 기상청 단기예보·특보 API(오늘의 날씨)
+(#52에서 확정)
 
 위 목록에 없는 라이브러리를 추가해야 하면 먼저 이유를 설명하고 확인을 받는다.
 
@@ -53,7 +58,9 @@
 - 로컬 DB 실행·마이그레이션, API 서버 실행: `Src/README.md` (`docker compose up -d`, `docker compose run --rm dbmate up`)
 - API 서버(`Src/backend`): `npm run dev`(http://localhost:4000, 명세 /docs), `npm test`(DB가 떠 있어야 함), `npm run typecheck`, `npm run build`
 - 공공데이터 수집·적재: `Src/backend/data/README.md`
-- 프론트 명령은 프론트 스택 확정 후 채운다.
+- 시민 웹(`Src/frontend/citizen`): `npm run dev`(http://localhost:5173), `npm run build`, `npm run lint`. 안내는 그 폴더의 `README.md`
+- 구청 웹(`Src/frontend/district`): `npm run dev`(http://localhost:5174), `npm run typecheck`, `npm run lint`, `npm run build`. 안내는 그 폴더의 `README.md`
+- 두 웹 모두 개발 서버가 API 요청을 API 서버(4000)로 넘기므로(Vite proxy) API 서버를 먼저 띄운다.
 
 커밋 전에 테스트·타입 검사·빌드가 통과하는지 확인한다.
 
