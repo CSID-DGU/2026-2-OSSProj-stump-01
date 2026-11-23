@@ -1,13 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import TopBar from '../components/TopBar'
 import Calendar from '../components/Calendar'
-import { buildDraft, selectableDates, submittedDates, type DraftRow } from '../lib/monthlyReport'
 import { currentMonthKey, formatMonth, formatShortDate, shiftMonth } from '../lib/date'
 import { formatMinutes } from '../content/recordOptions'
-import { REPORT_FIELDS, REPORT_STATUS_LABEL, type ReportFieldKey } from '../content/reportForm'
-import { findTree } from '../mocks/sample'
-import { submitMonthlyReport, useRecords, type MonthlyReport } from '../store/recordStore'
+import { REPORT_STATUS_LABEL } from '../content/reportForm'
+import { api, ApiError, type MonthlyReportDraft, type MyMonthlyReport, type ReportFieldKey } from '../lib/api'
 import './ReportPages.css'
 
 // 보고서를 쓸 수 있는 가장 이른 달 (몇 달 전까지 거슬러 갈 수 있는지). 임시값
@@ -15,23 +13,43 @@ const MONTHS_BACK = 3
 
 type Step = 'pick' | 'preview' | 'done'
 
-// 월간 보고서 작성·제출 (#80)
-// ① 기록이 있는 날짜 고르기 → ② 구청 양식 순서로 자동 작성된 미리보기 → ③ 제출 완료
+// 월간 보고서 작성·제출 (#80, API #62)
+// ① 기록이 있는 날짜 고르기(GET /monthly-reports/dates) → ② 구청 양식 순서로 채운 미리보기(GET /monthly-reports/draft) → ③ 제출(POST /monthly-reports)
+// 고를 수 있는 날·양식 칸·합계·관리청 검사는 모두 서버가 한다.
 export default function ReportWritePage() {
-  const records = useRecords()
   const thisMonth = currentMonthKey()
   const [month, setMonth] = useState(thisMonth)
+  const [dates, setDates] = useState<{ month: string; open: Set<string>; submitted: Set<string> } | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [step, setStep] = useState<Step>('pick')
-  const [submitted, setSubmitted] = useState<MonthlyReport | null>(null)
+  const [draft, setDraft] = useState<MonthlyReportDraft | null>(null)
+  const [submitted, setSubmitted] = useState<MyMonthlyReport | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
-  const open = useMemo(() => selectableDates(records, month), [records, month])
-  const done = useMemo(() => submittedDates(records, month), [records, month])
-  const draft = useMemo(() => buildDraft(records, [...selected], findTree), [records, selected])
+  // 달이 바뀌면 그 달의 날짜를 받아 온다
+  useEffect(() => {
+    let alive = true
+    api
+      .reportDates(month)
+      .then((r) => {
+        if (alive) setDates({ month: r.month, open: new Set(r.openDates), submitted: new Set(r.submittedDates) })
+      })
+      .catch((e) => {
+        if (alive) setError(e instanceof ApiError ? e.message : '날짜를 불러오지 못했어요.')
+      })
+    return () => {
+      alive = false
+    }
+  }, [month])
+
+  const open = dates?.month === month ? dates.open : new Set<string>()
+  const done = dates?.month === month ? dates.submitted : new Set<string>()
 
   function changeMonth(delta: number) {
     setMonth(shiftMonth(month, delta))
     setSelected(new Set()) // 보고서 하나는 한 달 것만 담는다
+    setError('')
   }
 
   function toggle(date: string) {
@@ -41,16 +59,31 @@ export default function ReportWritePage() {
     setSelected(next)
   }
 
-  function submit() {
-    const report = submitMonthlyReport({
-      month,
-      agency: draft.agencies[0],
-      dates: draft.dates,
-      recordIds: draft.recordIds,
-      totalMinutes: draft.totalMinutes,
-    })
-    setSubmitted(report)
-    setStep('done')
+  async function preview() {
+    setBusy(true)
+    setError('')
+    try {
+      setDraft(await api.reportDraft([...selected].sort()))
+      setStep('preview')
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '미리보기를 만들지 못했어요.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submit() {
+    if (!draft) return
+    setBusy(true)
+    setError('')
+    try {
+      setSubmitted(await api.submitReport(draft.dates))
+      setStep('done')
+    } catch (e) {
+      setError(e instanceof ApiError && e.status === 400 ? '보고서를 낼 수 없어요. 이미 낸 날이 섞였거나 관리청이 다른 나무가 섞였는지 확인해 주세요.' : '보고서를 내지 못했어요.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   // ③ 제출 완료
@@ -62,8 +95,7 @@ export default function ReportWritePage() {
           <div className="page-title">
             <h1 className="display">보고서를 냈어요</h1>
             <p className="body">
-              {submitted.agency} 담당자가 검토해요. 승인되면 활동 시간 {formatMinutes(submitted.totalMinutes)}이 봉사시간으로
-              기록되고, 결과는 알림으로 알려 드려요.
+              {submitted.agency} 담당자가 검토해요. 승인되면 활동 시간 {formatMinutes(submitted.totalMinutes)}이 봉사시간으로 기록되고, 결과는 알림으로 알려 드려요.
             </p>
           </div>
           <div className="tc-rows">
@@ -74,7 +106,7 @@ export default function ReportWritePage() {
             <div className="tc-row">
               <span>보고서</span>
               <span className="tc-row__value">
-                {formatMonth(submitted.month)} · {submitted.dates.length}일
+                {formatMonth(month)} · {submitted.dates.length}일 · 기록 {submitted.recordCount}건
               </span>
             </div>
             <div className="tc-row">
@@ -96,7 +128,7 @@ export default function ReportWritePage() {
   }
 
   // ② 미리보기
-  if (step === 'preview') {
+  if (step === 'preview' && draft) {
     const multipleAgencies = draft.agencies.length > 1
     return (
       <div className="app-shell tc-screen">
@@ -134,10 +166,10 @@ export default function ReportWritePage() {
             {draft.rows.map((row) => (
               <li key={row.recordId} className="report-entry">
                 <dl>
-                  {REPORT_FIELDS.map((field) => (
+                  {draft.fields.map((field) => (
                     <div key={field.key} className="report-entry__field">
                       <dt>{field.label}</dt>
-                      <dd>{fieldValue(row, field.key)}</dd>
+                      <dd>{fieldValue(field.key, row.values[field.key])}</dd>
                     </div>
                   ))}
                 </dl>
@@ -145,16 +177,20 @@ export default function ReportWritePage() {
             ))}
           </ol>
 
+          {error && (
+            <p className="tc-field__error" role="alert">
+              {error}
+            </p>
+          )}
+
           <div className="page-bottom">
             {multipleAgencies ? (
-              <p className="tc-field__error report-hint">
-                관리청이 다른 나무가 섞여 있어요. 보고서는 관리청마다 따로 내야 해서, 한 관리청 나무의 날짜만 골라 주세요.
-              </p>
+              <p className="tc-field__error report-hint">관리청이 다른 나무가 섞여 있어요. 보고서는 관리청마다 따로 내야 해서, 한 관리청 나무의 날짜만 골라 주세요.</p>
             ) : (
               <p className="micro report-hint">내고 나면 고른 날은 다시 고를 수 없어요.</p>
             )}
-            <button className="tc-btn tc-btn--primary" type="button" disabled={multipleAgencies} onClick={submit}>
-              보고서 내기
+            <button className="tc-btn tc-btn--primary" type="button" disabled={multipleAgencies || busy} onClick={submit}>
+              {busy ? '내는 중' : '보고서 내기'}
             </button>
           </div>
         </div>
@@ -164,6 +200,7 @@ export default function ReportWritePage() {
 
   // ① 날짜 고르기
   const earliest = shiftMonth(thisMonth, -MONTHS_BACK)
+  const loading = dates?.month !== month
   return (
     <div className="app-shell tc-screen">
       <TopBar title="월간 보고서" kind="close" aside="1 / 2" />
@@ -185,7 +222,9 @@ export default function ReportWritePage() {
 
         <Calendar month={month} selectable={open} submitted={done} selected={selected} onToggle={toggle} />
 
-        {open.size > 0 ? (
+        {loading ? (
+          <p className="body report-empty">날짜를 불러오는 중이에요.</p>
+        ) : open.size > 0 ? (
           <div className="tc-choices__list">
             <button
               type="button"
@@ -200,12 +239,16 @@ export default function ReportWritePage() {
           <p className="body report-empty">이 달에는 아직 보고서에 넣을 기록이 없어요.</p>
         )}
 
-        <div className="page-bottom">
-          <p className="micro report-hint">
-            {selected.size > 0 ? `${selected.size}일 골랐어요 · 활동 시간 ${formatMinutes(draft.totalMinutes)}` : '날짜를 하나 이상 골라 주세요.'}
+        {error && (
+          <p className="tc-field__error" role="alert">
+            {error}
           </p>
-          <button className="tc-btn tc-btn--primary" type="button" disabled={selected.size === 0} onClick={() => setStep('preview')}>
-            미리보기
+        )}
+
+        <div className="page-bottom">
+          <p className="micro report-hint">{selected.size > 0 ? `${selected.size}일 골랐어요` : '날짜를 하나 이상 골라 주세요.'}</p>
+          <button className="tc-btn tc-btn--primary" type="button" disabled={selected.size === 0 || busy} onClick={preview}>
+            {busy ? '미리보기 만드는 중' : '미리보기'}
           </button>
         </div>
       </div>
@@ -213,20 +256,17 @@ export default function ReportWritePage() {
   )
 }
 
-// 미리보기 칸에 보일 글자
-function fieldValue(row: DraftRow, key: ReportFieldKey): string {
+// 미리보기 칸에 보일 글자 (서버가 준 값을 화면용으로)
+function fieldValue(key: ReportFieldKey, value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '-'
   switch (key) {
     case 'date':
-      return formatShortDate(row.date)
-    case 'treeName':
-      return row.treeName
-    case 'activities':
-      return row.activities.join(', ')
+      return formatShortDate(String(value))
     case 'minutes':
-      return formatMinutes(row.minutes)
+      return formatMinutes(Number(value))
     case 'photoCount':
-      return row.photoCount > 0 ? `${row.photoCount}장` : '없음'
-    case 'note':
-      return row.note || '-'
+      return Number(value) > 0 ? `${value}장` : '없음'
+    default:
+      return String(value)
   }
 }
