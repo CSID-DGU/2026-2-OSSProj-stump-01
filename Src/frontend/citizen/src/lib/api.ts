@@ -187,6 +187,36 @@ export type MyRental = {
   receivedAt: string | null
 }
 
+// ---- 타입 (openapi.yaml 의 /weather/today) ----
+export type TodayWeather = {
+  date: string
+  tempMax: number | null // 일 최고기온(℃)
+  tempMin: number | null
+  isHeatwave: boolean // 최고기온 33℃ 이상이거나 폭염특보
+  warnings: string[] // 예: ["폭염경보"]
+  recommendedTimes: { start: string; end: string }[] // 활동 추천 시간대
+  message: string // 홈 화면 안내 문구 (서버가 만든다)
+  hourly: { hour: number; temp: number | null; pop: number | null; precipitationType: number; sky: number | null }[]
+  location: { treeId: number | null; nx: number; ny: number }
+  forecastBase: string
+}
+
+// ---- 타입 (openapi.yaml 의 Record) ----
+export type ApiRecord = {
+  id: number
+  type: 'activity' | 'report'
+  recordedAt: string
+  activityDate: string | null // 활동일 (활동 기록만)
+  activityKinds: string[]
+  durationMin: number | null
+  memo: string | null
+  photos: string[]
+  location: { lat: number; lng: number } | null
+  monthlyReportId: number | null
+  report: { category: string; urgency: 'low' | 'high'; status: 'pending' | 'inspecting' | 'resolved' } | null
+  tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null }
+}
+
 export const api = {
   // 지도 범위 안의 나무. 로그인 없이 부른다.
   trees: (bbox: Bbox, limit: number, district?: string) =>
@@ -212,6 +242,12 @@ export const api = {
 
   // 내 물품 신청 현황 (최신순)
   myRentals: () => get<{ rentals: MyRental[] }>('/rentals/me'),
+
+  // 오늘의 날씨와 활동 추천 시간 (로그인 없음). treeId를 주면 그 나무 위치 기준. 키 미설정·기상청 장애면 503
+  weatherToday: (treeId?: number) => get<TodayWeather>(`/weather/today${treeId ? `?treeId=${treeId}` : ''}`),
+
+  // 내 기록 한 달 (기본 이번 달, 최신순). 활동 기록과 이상 신고
+  myRecords: (month?: string) => get<{ month: string; records: ApiRecord[] }>(`/records/me${month ? `?month=${month}` : ''}`),
 
   // 회원가입 (시민 계정만). 실명·연락처는 받지 않는다
   signup: (input: { email: string; password: string; nickname: string }) => post<AuthResponse>('/auth/signup', input),
