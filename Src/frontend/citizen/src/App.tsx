@@ -14,6 +14,7 @@ import RecordNewPage from './pages/RecordNewPage'
 import RecordsPage from './pages/RecordsPage'
 import ReportWritePage from './pages/ReportWritePage'
 import SignupPage from './pages/SignupPage'
+import StoryWritePage from './pages/StoryWritePage'
 import TreeDetailPage from './pages/TreeDetailPage'
 import VolunteerHoursPage from './pages/VolunteerHoursPage'
 import { checkSavedLogin } from './store/authStore'
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="apply" element={<ApplyPage />} />
           <Route path="applications" element={<MyApplicationsPage />} />
+          <Route path="trees/:id/story/new" element={<StoryWritePage />} />
         </Route>
       </Routes>
     </BrowserRouter>
