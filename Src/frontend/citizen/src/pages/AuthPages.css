@@ -1,0 +1,26 @@
+/* 로그인·회원가입·나 화면 전용 스타일 */
+
+.auth-form {
+  gap: var(--space-6);
+}
+
+/* 로그인 화면 맨 위 서비스 이름 (로고가 없어서 글자로 쓴다. 디자인 가이드: Hahmlet 700) */
+.auth-brand {
+  padding-top: var(--space-7);
+  color: var(--primary);
+}
+
+.auth-switch {
+  display: block;
+  text-align: center;
+  line-height: var(--tap-target);
+}
+
+.auth-logout {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  cursor: pointer;
+}
