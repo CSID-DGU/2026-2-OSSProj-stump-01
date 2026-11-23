@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 import TopBar from '../components/TopBar'
 import MonthRing from '../components/MonthRing'
+import InstallHint from '../components/InstallHint'
 import { daysInThisMonth, todayKey } from '../lib/date'
 import { formatMinutes, reportLabel } from '../content/recordOptions'
 import { photoUrl, type ApiRecord } from '../lib/api'
@@ -92,6 +93,9 @@ export default function RecordSaved({ record, treeName, agency, daysBefore, days
             ))}
           </ul>
         )}
+
+        {/* 첫 기록 뒤 홈 화면 추가 안내 (#84). "다음에"를 누르면 다시 나오지 않는다 */}
+        {record.type === 'activity' && <InstallHint place="after-record" />}
 
         <div className="page-bottom">
           <Link className="tc-btn tc-btn--primary" to="/">
