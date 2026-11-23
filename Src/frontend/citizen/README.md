@@ -1,7 +1,7 @@
 # 서울 TreeCare 시민 웹
 
 돌보미와 지나가는 시민이 휴대폰으로 쓰는 모바일 웹(PWA)이다. React + TypeScript + Vite로 만든다.
-아직 백엔드 API에 연결하지 않았다. 기록은 `src/store/recordStore.ts`가 브라우저(localStorage)에 임시로 저장한다.
+모든 화면은 백엔드 API(`Src/backend`, http://localhost:4000)를 쓴다. 개발 서버가 `/api` 요청을 API 서버로 넘기므로 API 서버를 먼저 켠다(`Src/README.md`).
 
 ## 실행
 
@@ -25,7 +25,8 @@ src/
   index.css              화면 틀(앱 껍데기, 여백, 데스크탑 배치)
   components/            여러 화면이 같이 쓰는 부품 (하단 탭, 상단 바, 화면 제목)
   pages/                 화면 하나당 파일 하나
-  mocks/                 API가 나오기 전까지 쓰는 가짜 데이터
+  lib/api.ts             백엔드 호출 (경로·응답 모양은 Src/backend/openapi.yaml과 맞춘다)
+  store/                 로그인 상태·알림·신청할 나무처럼 여러 화면이 같이 쓰는 상태
   App.tsx                주소와 화면 연결
 ```
 

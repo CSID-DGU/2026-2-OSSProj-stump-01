@@ -20,15 +20,21 @@ export class ApiError extends Error {
 }
 
 // 로그인 토큰이 있으면 Authorization 헤더에 넣어 보낸다 (로그인이 필요 없는 API는 서버가 헤더를 무시한다)
+// body가 FormData(사진 등 파일)면 multipart로 그대로 보내고, 아니면 JSON으로 보낸다.
 async function request<T>(method: 'GET' | 'POST' | 'PATCH', path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  const isForm = body instanceof FormData
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json' // FormData는 브라우저가 경계값과 함께 정한다
 
   let res: Response
   try {
-    res = await fetch(`/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+    res = await fetch(`/api${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+    })
   } catch {
     throw new ApiError(0, 'NETWORK', '서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인하세요.')
   }
@@ -217,6 +223,62 @@ export type ApiRecord = {
   tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null }
 }
 
+// 서버가 준 사진 경로("/uploads/…")를 화면에서 쓸 주소로. 개발 서버는 /api 를 백엔드로 넘긴다
+export function photoUrl(path: string): string {
+  return `/api${path}`
+}
+
+// ---- 타입 (openapi.yaml 의 월간 보고서) ----
+export type ReportFieldKey = 'date' | 'treeName' | 'activities' | 'minutes' | 'photoCount' | 'note'
+
+export type MonthlyReportDraft = {
+  fields: { key: ReportFieldKey; label: string }[] // 구청 양식 칸 순서와 이름 (서버가 정한다)
+  rows: { recordId: number; values: Partial<Record<ReportFieldKey, string | number | null>> }[]
+  dates: string[]
+  totalMinutes: number
+  treeCount: number
+  agencies: string[] // 둘 이상이면 제출할 수 없다
+}
+
+export type MonthlyReportStatus = 'submitted' | 'approved' | 'revision_requested' // 검토 대기 / 승인 / 보완 요청
+
+export type MyMonthlyReport = {
+  id: number
+  status: MonthlyReportStatus
+  agency: string
+  totalMinutes: number
+  dates: string[]
+  recordCount: number
+  reviewNote: string | null // 구청 의견
+  submittedAt: string
+  reviewedAt: string | null
+  volunteerMinutes: number | null // 승인되어 기록된 봉사시간 (승인 전 null)
+}
+
+// 기록 만들기 입력. 화면이 FormData로 바꿔 보낸다
+export type NewRecord =
+  | { type: 'activity'; treeId: number; activityKinds: string[]; durationMin: number; memo: string; photos: File[] }
+  | { type: 'report'; treeId: number; category: string; memo: string; photos: File[]; lat?: number; lng?: number }
+
+function recordForm(input: NewRecord): FormData {
+  const f = new FormData()
+  f.append('type', input.type)
+  f.append('treeId', String(input.treeId))
+  if (input.type === 'activity') {
+    input.activityKinds.forEach((k) => f.append('activityKinds', k)) // 같은 이름으로 여러 번 (쉼표 불가)
+    f.append('durationMin', String(input.durationMin))
+  } else {
+    f.append('category', input.category)
+    if (input.lat !== undefined && input.lng !== undefined) {
+      f.append('lat', String(input.lat))
+      f.append('lng', String(input.lng))
+    }
+  }
+  if (input.memo) f.append('memo', input.memo)
+  input.photos.forEach((p) => f.append('photos', p))
+  return f
+}
+
 export const api = {
   // 지도 범위 안의 나무. 로그인 없이 부른다.
   trees: (bbox: Bbox, limit: number, district?: string) =>
@@ -248,6 +310,21 @@ export const api = {
 
   // 내 기록 한 달 (기본 이번 달, 최신순). 활동 기록과 이상 신고
   myRecords: (month?: string) => get<{ month: string; records: ApiRecord[] }>(`/records/me${month ? `?month=${month}` : ''}`),
+
+  // 날짜별 활동 기록·이상 신고 만들기 (#5). 사진은 3장까지. 활동 기록은 그 나무의 돌보미만(403), 날짜는 서버가 오늘로 정한다
+  createRecord: (input: NewRecord) => post<ApiRecord>('/records', recordForm(input)),
+
+  // 월간 보고서 달력: 보고서에 안 넣은 기록이 있는 날(openDates)과 모두 낸 날(submittedDates)
+  reportDates: (month: string) => get<{ month: string; openDates: string[]; submittedDates: string[] }>(`/monthly-reports/dates?month=${month}`),
+
+  // 월간 보고서 미리보기 (저장하지 않음). 같은 달 날짜들
+  reportDraft: (dates: string[]) => get<MonthlyReportDraft>(`/monthly-reports/draft?dates=${dates.join(',')}`),
+
+  // 월간 보고서 제출 → 검토 대기. 고른 날은 다시 고를 수 없다
+  submitReport: (dates: string[]) => post<MyMonthlyReport>('/monthly-reports', { dates }),
+
+  // 내 월간 보고서 (최신순)
+  myReports: () => get<{ reports: MyMonthlyReport[] }>('/monthly-reports/me'),
 
   // 회원가입 (시민 계정만). 실명·연락처는 받지 않는다
   signup: (input: { email: string; password: string; nickname: string }) => post<AuthResponse>('/auth/signup', input),
