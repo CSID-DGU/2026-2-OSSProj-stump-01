@@ -1,6 +1,6 @@
 // 알림 생성 함수.
-// 알림 모듈은 시민-BE 담당이다(#7). 구청-BE는 이 함수를 호출만 한다(CLAUDE.md 경계 규칙).
-// #7이 만들어지기 전까지 쓰는 최소 구현이다. #7에서 이 파일을 넘겨받아 고쳐도 호출하는 쪽 인터페이스는 유지한다.
+// 알림 모듈은 시민-BE 담당이다(#7). 구청-BE는 이 함수를 호출만 한다(CLAUDE.md 경계 규칙, #1에서 확정).
+// 목록·읽음 처리는 citizen/notifications.ts에 있다. 호출 인터페이스를 바꾸려면 CLAUDE.md부터 고친다.
 import type { Db } from './db.js';
 
 export type NotificationType =

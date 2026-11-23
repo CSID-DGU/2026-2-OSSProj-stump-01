@@ -23,13 +23,18 @@
 
 ## 시민·구청 경계 규칙
 
-시민 모듈과 구청 모듈이 같은 데이터를 다루는 지점이다. 바꾸려면 이 문서부터 고치고, PR의 리뷰 포인트에 영향받는 영역을 적는다.
+시민 모듈과 구청 모듈이 같은 데이터를 다루는 지점이다(#1에서 확정). 바꾸려면 이 문서부터 고치고, PR의 리뷰 포인트에 영향받는 영역을 적는다. 테이블·컬럼 정의는 `Src/backend/db/ERD.md`를 따른다.
 
 - 신고(Report): 생성은 시민-BE, 상태 변경은 구청-BE. 상태값은 `확인 필요 → 현장 확인 → 조치 완료` 세 가지뿐이다.
+  - DB 값은 `reports.status`의 `pending` → `inspecting` → `resolved`이고, 한 단계씩만 넘어간다.
+  - 신고 필드(유형 `category` 5가지, 사진·위치, 관리청)는 ERD의 `records`·`reports`를 따른다. 긴급도(`urgency`)는 시민이 고르지 않고 시민-BE가 유형으로 채운다(ERD "신고 유형과 긴급도").
 - 돌보미 신청서(Application): 제출은 시민-BE, 심사(승인·반려, 반려 사유)는 구청-BE.
 - 월간 보고서(Monthly Report): 작성·제출은 시민-BE, 검토(승인·보완 요청)와 봉사시간 기록은 구청-BE. 승인과 봉사시간 기록은 한 트랜잭션으로 묶는다.
 - 물품 지급(Rental): 신청은 시민-BE, 승인·수령 처리와 재고는 구청-BE. 회수(반납)는 없다.
 - 알림(Notification): 모듈은 시민-BE가 소유한다. 구청-BE는 신청·보고서·물품 결과, 조치 완료 때 알림 생성 함수를 호출만 한다.
+  - 생성 함수: `Src/backend/common/notifications.ts`의 `createNotification(db, { userId, type, title, body, treeId?, reportId? })`. 상태 변경과 같은 트랜잭션의 `db`를 넘겨, 상태 변경이 취소되면 알림도 같이 취소되게 한다.
+  - `type`: `application_result`, `monthly_report_result`, `rental_result`, `report_resolved`(`reportId` 필수), `story_reaction`. 종류를 늘리려면 이 문서와 DB CHECK를 같이 고친다.
+  - 목록·읽음 처리는 시민-BE(`citizen/notifications.ts`)만 한다.
 - 단체(Organization): 단체 관리자는 소속 회원의 기록을 읽고 묶어 볼 뿐 상태를 바꾸지 않는다.
 - 지도 컴포넌트: 구청-FE가 만든 공용 컴포넌트를 시민 웹과 구청 웹이 함께 쓴다. 한쪽 화면만을 위해 공용 컴포넌트를 고치지 않고, 옵션(props)으로 분기한다.
 - 서버는 하나다. 백엔드 안에서 시민·구청 모듈을 폴더로 나눈다.
