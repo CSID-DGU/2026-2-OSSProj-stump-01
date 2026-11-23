@@ -15,6 +15,7 @@ import RecordsPage from './pages/RecordsPage'
 import RentalsPage from './pages/RentalsPage'
 import ReportWritePage from './pages/ReportWritePage'
 import SignupPage from './pages/SignupPage'
+import StoryEntryPage from './pages/StoryEntryPage'
 import StoryWritePage from './pages/StoryWritePage'
 import TreeDetailPage from './pages/TreeDetailPage'
 import VolunteerHoursPage from './pages/VolunteerHoursPage'
@@ -38,6 +39,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="map" element={<MapPage />} />
           <Route path="trees/:id" element={<TreeDetailPage />} />
+          <Route path="stories/:id" element={<StoryEntryPage />} />
         </Route>
 
         {/* 로그인해야 */}

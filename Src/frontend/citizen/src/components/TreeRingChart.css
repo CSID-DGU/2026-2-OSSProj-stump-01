@@ -1,0 +1,159 @@
+/* 디지털 나이테 (#44). 색은 디자인 토큰에서만 가져온다 */
+
+.rings {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rings__svg {
+  width: 100%;
+  max-width: 400px;
+  align-self: center;
+  overflow: visible;
+}
+
+/* 더위 → 색 (추운 달 파랑 → 따뜻한 달 초록 → 더운 달 노랑 → 폭염 빨강) */
+.ring-heat-none { fill: var(--line); }
+.ring-heat-cold { fill: var(--cold); }
+.ring-heat-cool { fill: color-mix(in srgb, var(--cold) 45%, var(--primary)); }
+.ring-heat-mild { fill: var(--primary); }
+.ring-heat-warm { fill: var(--mark); }
+.ring-heat-hot { fill: var(--danger); }
+
+.rings__slice {
+  stroke: var(--bg);
+  stroke-width: 1;
+  cursor: pointer;
+  opacity: 0.9;
+}
+
+.rings__slice.ring-heat-none {
+  cursor: default;
+}
+
+.rings__slice.is-selected {
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  opacity: 1;
+}
+
+.rings__slice:focus-visible {
+  outline: none;
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+/* 점: 활동한 날 (조각 위에서 보이도록 바탕색) */
+.rings__dot {
+  fill: var(--bg);
+  stroke: var(--ink);
+  stroke-width: 0.6;
+}
+
+.rings__star {
+  fill: var(--mark);
+  stroke: var(--ink);
+  stroke-width: 0.8;
+  pointer-events: none;
+}
+
+/* 별은 작아서 누르기 쉽게 보이지 않는 넓은 원을 깐다 */
+.rings__star-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.rings a:focus-visible .rings__star-hit {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.rings__report { fill: var(--danger); }
+.rings__resolved { fill: var(--primary); stroke: var(--bg); stroke-width: 1; }
+.rings__reaction { fill: var(--mark); stroke: var(--ink); stroke-width: 0.6; }
+
+.rings__center-big {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.rings__center-small {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  fill: var(--muted);
+}
+
+.rings__caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rings__sample {
+  color: var(--earth);
+}
+
+.rings__legend {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--muted);
+}
+
+.rings__legend-heat,
+.rings__legend-marks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+}
+
+.rings__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rings__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* 스와치는 fill 대신 배경색을 쓴다 */
+.rings__swatch.ring-heat-cold { background: var(--cold); }
+.rings__swatch.ring-heat-cool { background: color-mix(in srgb, var(--cold) 45%, var(--primary)); }
+.rings__swatch.ring-heat-mild { background: var(--primary); }
+.rings__swatch.ring-heat-warm { background: var(--mark); }
+.rings__swatch.ring-heat-hot { background: var(--danger); }
+
+.rings__legend-icon {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+
+.rings__legend-icon .rings__dot {
+  fill: var(--bg);
+}
+
+.rings__star-icon {
+  fill: var(--mark);
+  stroke: var(--ink);
+  stroke-width: 0.8;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .rings__slice {
+    transition: opacity 0.15s ease;
+  }
+}

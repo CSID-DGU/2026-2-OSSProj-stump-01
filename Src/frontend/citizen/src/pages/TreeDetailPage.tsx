@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import TopBar from '../components/TopBar'
+import TreeRingsPanel from '../components/TreeRingsPanel'
 import { api, ApiError, type SpeciesCard, type StoryEntry, type TreeDetail } from '../lib/api'
 import { isActiveCaregiver } from '../lib/caregiver'
 import { formatShortDate, toDateKey } from '../lib/date'
@@ -18,7 +19,10 @@ export default function TreeDetailPage() {
   return <TreeDetailView key={treeId} treeId={treeId} />
 }
 
-type Tab = 'story' | 'species'
+type Tab = 'story' | 'rings' | 'species'
+
+// 이야기를 아직 못 받았을 때 나이테에 넘기는 빈 목록 (매번 새 배열을 만들면 나이테가 다시 불러온다)
+const EMPTY_STORIES: StoryEntry[] = []
 
 function TreeDetailView({ treeId }: { treeId: number }) {
   const navigate = useNavigate()
@@ -32,8 +36,9 @@ function TreeDetailView({ treeId }: { treeId: number }) {
   const [tree, setTree] = useState<TreeDetail | null>(null)
   const [entries, setEntries] = useState<StoryEntry[] | null>(null)
   const [error, setError] = useState<'notfound' | string | null>(null)
-  // ?tab=species 로 열면 수종 탭부터 보여 준다
-  const [tab, setTab] = useState<Tab>(params.get('tab') === 'species' ? 'species' : 'story')
+  // ?tab=species, ?tab=rings 로 열면 그 탭부터 보여 준다
+  const tabParam = params.get('tab')
+  const [tab, setTab] = useState<Tab>(tabParam === 'species' || tabParam === 'rings' ? tabParam : 'story')
 
   useEffect(() => {
     let alive = true
@@ -144,12 +149,17 @@ function TreeDetailView({ treeId }: { treeId: number }) {
             <button className="tc-tab" role="tab" type="button" aria-selected={tab === 'story'} onClick={() => setTab('story')}>
               이야기 {entries && entries.length > 0 ? entries.length : ''}
             </button>
+            <button className="tc-tab" role="tab" type="button" aria-selected={tab === 'rings'} onClick={() => setTab('rings')}>
+              나이테
+            </button>
             <button className="tc-tab" role="tab" type="button" aria-selected={tab === 'species'} onClick={() => setTab('species')}>
               {tree.species}
             </button>
           </div>
 
-          {tab === 'story' ? <StoryList entries={entries ?? []} /> : <SpeciesCardView card={tree.speciesCard} species={tree.species} />}
+          {tab === 'story' && <StoryList entries={entries ?? []} />}
+          {tab === 'rings' && <TreeRingsPanel treeId={tree.id} stories={entries ?? EMPTY_STORIES} />}
+          {tab === 'species' && <SpeciesCardView card={tree.speciesCard} species={tree.species} />}
 
           <div className="page-bottom">
             {caregiver ? (
