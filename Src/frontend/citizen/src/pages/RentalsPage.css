@@ -1,0 +1,108 @@
+/* 물품 신청(#81) 전용 스타일 */
+
+.rentals {
+  gap: var(--space-7);
+}
+
+.rentals-section,
+.rentals-agency {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.rentals-muted {
+  color: var(--muted);
+}
+
+.rentals-alert {
+  color: var(--danger);
+}
+
+.rentals-ok {
+  color: var(--primary);
+}
+
+.rentals-empty,
+.rentals-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.rentals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 물품 한 줄: 이름·재고, 그 아래 수량과 신청 버튼 */
+.rentals-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.rentals-item__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.rentals-item__action {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* 수량 고르기 − 1개 + */
+.rentals-qty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rentals-qty__btn {
+  width: var(--tap-target);
+  height: var(--tap-target);
+  border: 1px solid var(--line-strong);
+  border-radius: 22px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.rentals-qty__btn:disabled {
+  color: var(--faint);
+  cursor: default;
+}
+
+.rentals-qty__n {
+  min-width: 40px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 내 신청 현황 */
+.rentals-mine {
+  align-items: flex-start;
+}
+
+.rentals-mine__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rentals-mine .tc-status {
+  flex-shrink: 0;
+}

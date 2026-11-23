@@ -12,6 +12,7 @@ import NotificationsPage from './pages/NotificationsPage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import RecordNewPage from './pages/RecordNewPage'
 import RecordsPage from './pages/RecordsPage'
+import RentalsPage from './pages/RentalsPage'
 import ReportWritePage from './pages/ReportWritePage'
 import SignupPage from './pages/SignupPage'
 import StoryWritePage from './pages/StoryWritePage'
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="apply" element={<ApplyPage />} />
           <Route path="applications" element={<MyApplicationsPage />} />
           <Route path="trees/:id/story/new" element={<StoryWritePage />} />
+          <Route path="rentals" element={<RentalsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

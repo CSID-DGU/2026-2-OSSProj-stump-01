@@ -166,6 +166,27 @@ export type NewApplication = {
   agreed: true
 }
 
+// ---- 타입 (openapi.yaml 의 물품) ----
+export type AvailableItem = {
+  id: number
+  agency: string // 물품을 주는 관리청
+  name: string
+  stock: number // 아직 배정하지 않은 재고
+}
+
+export type RentalStatus = 'requested' | 'approved' | 'rejected' | 'received' // 신청 / 승인 / 반려 / 수령
+
+export type MyRental = {
+  id: number
+  status: RentalStatus
+  quantity: number
+  item: { id: number; name: string; agency: string }
+  rejectReason: string | null
+  createdAt: string
+  handledAt: string | null // 구청이 승인·반려한 시각
+  receivedAt: string | null
+}
+
 export const api = {
   // 지도 범위 안의 나무. 로그인 없이 부른다.
   trees: (bbox: Bbox, limit: number, district?: string) =>
@@ -182,6 +203,15 @@ export const api = {
   // 이야기 덧붙이기 (#64). 그 나무의 승인된 돌보미(오늘이 활동 기간 안)만 쓸 수 있다(403)
   addStoryEntry: (treeId: number, input: { body: string; authorDisplay: 'nickname' | 'real_name'; isPublic: boolean }) =>
     post<StoryEntry>(`/trees/${treeId}/story/entries`, input),
+
+  // 신청할 수 있는 물품: 내가 승인된 돌보미인 나무의 관리청 물품만. 돌보미가 아니면 빈 목록
+  rentalItems: () => get<{ items: AvailableItem[] }>('/rental-items'),
+
+  // 물품 신청 (한 번에 5개까지). 재고 부족이나 같은 물품에 처리 중인 신청이 있으면 409
+  requestRental: (itemId: number, quantity: number) => post<MyRental>('/rentals', { itemId, quantity }),
+
+  // 내 물품 신청 현황 (최신순)
+  myRentals: () => get<{ rentals: MyRental[] }>('/rentals/me'),
 
   // 회원가입 (시민 계정만). 실명·연락처는 받지 않는다
   signup: (input: { email: string; password: string; nickname: string }) => post<AuthResponse>('/auth/signup', input),
