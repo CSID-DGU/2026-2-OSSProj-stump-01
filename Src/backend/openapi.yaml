@@ -1214,6 +1214,7 @@ components:
         roadName: { type: [string, 'null'], description: 노선, example: 명동길 }
         caregiverCount: { type: integer, description: 승인된 돌보미 수 }
         hasOpenReport: { type: boolean, description: 조치 완료 전인 이상 신고가 있는지 }
+        careGap: { type: [string, 'null'], enum: [no_caregiver, inactive, null], description: "관리 사각지대(#22). no_caregiver = 이번 달 활동 기간이 걸친 승인된 돌보미 없음, inactive = 돌보미는 있는데 이번 달(한국 시간, 오늘까지) 활동 기록 없음, null = 돌보미가 이번 달 활동함. 지도에 '관리가 필요한 나무'로 강조하는 데 쓴다" }
     TreeDetail:
       allOf:
         - { $ref: '#/components/schemas/Tree' }
