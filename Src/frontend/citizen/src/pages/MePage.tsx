@@ -5,8 +5,7 @@ import { logout, useAuth } from '../store/authStore'
 import { refreshNotifications, useNotifications } from '../store/notificationStore'
 import './AuthPages.css'
 
-// 하단 탭 "나". 내 정보, 알림(#41), 돌보미 신청 현황(#40), 로그아웃.
-// 물품 신청(#81)이 여기에 들어온다.
+// 하단 탭 "나". 내 정보, 알림(#41), 돌보미 신청 현황(#40), 물품 신청(#81), 로그아웃.
 export default function MePage() {
   const auth = useAuth()
   const navigate = useNavigate()
@@ -38,10 +37,10 @@ export default function MePage() {
           <span>돌보미 신청 현황</span>
           <span className="tc-row__value">보기</span>
         </Link>
-        <div className="tc-row">
-          <span>물품 신청</span>
-          <span className="tc-row__value tc-row__value--earth">준비 중 (#81)</span>
-        </div>
+        <Link className="tc-row me-link" to="/rentals">
+          <span>활동 물품 신청</span>
+          <span className="tc-row__value">보기</span>
+        </Link>
       </div>
 
       <div className="page-bottom">

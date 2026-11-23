@@ -1,5 +1,4 @@
-// 알림 종류별 이름과, 눌렀을 때 갈 화면.
-// 아직 없는 화면(물품 #81)은 "나" 탭으로 보낸다. 화면이 생기면 여기만 고친다.
+// 알림 종류별 이름과, 눌렀을 때 갈 화면. 화면 주소가 바뀌면 여기만 고친다.
 import type { Notification, NotificationType } from '../lib/api'
 
 export const NOTIFICATION_LABEL: Record<NotificationType, string> = {
@@ -17,7 +16,7 @@ export function notificationLink(n: Notification): string {
     case 'monthly_report_result':
       return '/volunteer-hours'
     case 'rental_result':
-      return '/me' // TODO(#81): 물품 신청 현황 화면
+      return '/rentals'
     case 'report_resolved':
     case 'story_reaction':
       return n.treeId ? `/trees/${n.treeId}` : '/records'
