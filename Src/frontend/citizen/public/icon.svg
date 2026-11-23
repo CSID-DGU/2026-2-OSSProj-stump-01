@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- TreeCare 앱 아이콘: 초록 바탕(primary #3F7A4C)에 나이테 4겹, 지금 달 조각은 노랑(mark #E9B824).
+       홈 화면 아이콘이 원·둥근 사각형으로 잘려도 보이도록 그림은 가운데 80% 안에 둔다 -->
+  <rect width="512" height="512" fill="#3F7A4C"/>
+  <g fill="none" stroke="#F7F8F4" stroke-width="16">
+    <circle cx="256" cy="256" r="44"/>
+    <circle cx="256" cy="256" r="88"/>
+    <circle cx="256" cy="256" r="132"/>
+    <circle cx="256" cy="256" r="176"/>
+  </g>
+  <!-- 바깥 겹의 한 조각(30°, 10시~11시 방향) -->
+  <path d="M 103.6 168 A 176 176 0 0 1 168 103.6" fill="none" stroke="#E9B824" stroke-width="16" stroke-linecap="round"/>
+</svg>

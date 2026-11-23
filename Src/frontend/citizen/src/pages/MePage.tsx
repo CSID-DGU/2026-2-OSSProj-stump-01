@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import PageTitle from '../components/PageTitle'
+import InstallHint from '../components/InstallHint'
 import { logout, useAuth } from '../store/authStore'
 import { refreshNotifications, useNotifications } from '../store/notificationStore'
 import './AuthPages.css'
 
-// 하단 탭 "나". 내 정보, 알림(#41), 돌보미 신청 현황(#40), 물품 신청(#81), 로그아웃.
+// 하단 탭 "나". 내 정보, 알림(#41), 돌보미 신청 현황(#40), 물품 신청(#81), 홈 화면 추가(#84), 로그아웃.
 export default function MePage() {
   const auth = useAuth()
   const navigate = useNavigate()
@@ -42,6 +43,9 @@ export default function MePage() {
           <span className="tc-row__value">보기</span>
         </Link>
       </div>
+
+      {/* 홈 화면에 추가 (#84). 휴대폰에서, 아직 홈 화면 앱이 아닐 때만 보인다 */}
+      <InstallHint place="me" />
 
       <div className="page-bottom">
         <button
