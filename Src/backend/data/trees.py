@@ -200,6 +200,8 @@ def load(csv_path: Path = CLEAN_CSV) -> dict:
     새 나무는 추가하고, 이미 있는 나무(source_key가 같은 나무)는 원본 정보만 고친다.
     원본에 있는 컬럼만 고치고 health_status 같은 서비스 컬럼은 건드리지 않는다.
     원본에서 사라진 나무는 지우지 않는다. 신청·기록·이야기가 걸려 있을 수 있어서 개수만 알려 준다.
+    넣은 뒤 관리번호가 없는 나무(새 나무)에 assign_tree_codes()로 `자치구코드-순번` 관리번호를 붙인다(#4).
+    이미 붙은 번호는 바뀌지 않아 QR 명판 주소가 그대로 유지된다.
     """
     from db import connect, copy_csv  # DB 적재 단계에서만 필요해서 여기서 불러온다
 
@@ -224,11 +226,21 @@ def load(csv_path: Path = CLEAN_CSV) -> dict:
             RETURNING (xmax = 0) AS inserted
         """)
         inserted = sum(1 for (is_new,) in cur.fetchall() if is_new)
+        cur.execute("SELECT assign_tree_codes()")
+        (coded,) = cur.fetchone()
+        cur.execute("SELECT count(*) FROM trees WHERE code IS NULL")
+        (uncoded,) = cur.fetchone()
         cur.execute("SELECT count(*) FROM trees_src")
         (source_count,) = cur.fetchone()
         cur.execute("SELECT count(*) FROM trees t WHERE NOT EXISTS (SELECT 1 FROM trees_src s WHERE s.source_key = t.source_key)")
         (missing,) = cur.fetchone()
-    return {"추가": inserted, "갱신": source_count - inserted, "원본에 없는 기존 나무": missing}
+    return {
+        "추가": inserted,
+        "갱신": source_count - inserted,
+        "원본에 없는 기존 나무": missing,
+        "관리번호 새로 부여": coded,
+        "관리번호 없는 나무(구 코드 없음)": uncoded,
+    }
 
 
 def main(argv: Optional[list] = None) -> int:
