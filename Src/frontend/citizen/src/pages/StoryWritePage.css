@@ -1,0 +1,20 @@
+/* 공동 이야기 덧붙이기(#82) 전용 스타일 */
+
+.story-form {
+  gap: var(--space-7);
+}
+
+.story-body {
+  min-height: 180px;
+}
+
+.story-muted {
+  color: var(--muted);
+}
+
+.story-blocked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}

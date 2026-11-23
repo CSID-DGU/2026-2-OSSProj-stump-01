@@ -179,6 +179,10 @@ export const api = {
   // 나무별 공동 이야기: 공개 글만, 오래된 순 (로그인 없음)
   story: (id: number) => get<{ treeId: number; entries: StoryEntry[] }>(`/trees/${id}/story`),
 
+  // 이야기 덧붙이기 (#64). 그 나무의 승인된 돌보미(오늘이 활동 기간 안)만 쓸 수 있다(403)
+  addStoryEntry: (treeId: number, input: { body: string; authorDisplay: 'nickname' | 'real_name'; isPublic: boolean }) =>
+    post<StoryEntry>(`/trees/${treeId}/story/entries`, input),
+
   // 회원가입 (시민 계정만). 실명·연락처는 받지 않는다
   signup: (input: { email: string; password: string; nickname: string }) => post<AuthResponse>('/auth/signup', input),
 

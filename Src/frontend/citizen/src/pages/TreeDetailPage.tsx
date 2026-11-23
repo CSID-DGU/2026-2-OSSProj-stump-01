@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import TopBar from '../components/TopBar'
 import { api, ApiError, type SpeciesCard, type StoryEntry, type TreeDetail } from '../lib/api'
+import { isActiveCaregiver } from '../lib/caregiver'
 import { formatShortDate, toDateKey } from '../lib/date'
 import { addToCart } from '../store/applyCart'
+import { useAuth } from '../store/authStore'
 import './TreeDetailPage.css'
 
 // 나무 상세·QR 이야기 페이지 (#38). 로그인 없이 연다.
@@ -22,6 +24,10 @@ function TreeDetailView({ treeId }: { treeId: number }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const fromQr = params.get('from') === 'qr'
+  const savedPrivate = params.get('saved') === 'private' // 비공개 이야기를 막 올리고 돌아왔을 때 (#82)
+  const auth = useAuth()
+  const signedIn = auth.status === 'signed-in'
+  const [caregiver, setCaregiver] = useState(false) // 내가 이 나무의 돌보미인지 (로그인했을 때만 확인)
 
   const [tree, setTree] = useState<TreeDetail | null>(null)
   const [entries, setEntries] = useState<StoryEntry[] | null>(null)
@@ -46,6 +52,21 @@ function TreeDetailView({ treeId }: { treeId: number }) {
       alive = false
     }
   }, [treeId])
+
+  // 로그인했으면 내 신청 현황으로 "이 나무 돌보미인지" 확인한다. 돌보미면 이야기를 덧붙일 수 있다 (#82)
+  useEffect(() => {
+    if (!signedIn) return
+    let alive = true
+    api
+      .myApplications()
+      .then((r) => {
+        if (alive) setCaregiver(isActiveCaregiver(r.applications, treeId))
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [signedIn, treeId])
 
   if (error === 'notfound') return <NotFound />
 
@@ -72,6 +93,11 @@ function TreeDetailView({ treeId }: { treeId: number }) {
       {tree && (
         <>
           {fromQr && <p className="body tree-qr field-only">명판을 찍으셨군요. 로그인 없이 이 나무의 이야기를 볼 수 있어요.</p>}
+          {savedPrivate && (
+            <p className="body tree-qr" role="status">
+              비공개로 이야기를 올렸어요. 비공개 글은 이 페이지에 나오지 않아요.
+            </p>
+          )}
 
           <div className="page-title">
             <h1 className="display">
@@ -126,9 +152,15 @@ function TreeDetailView({ treeId }: { treeId: number }) {
           {tab === 'story' ? <StoryList entries={entries ?? []} /> : <SpeciesCardView card={tree.speciesCard} species={tree.species} />}
 
           <div className="page-bottom">
-            <button className="tc-btn tc-btn--primary" type="button" onClick={becomeCaregiver}>
-              나도 이 나무 돌보미 하기
-            </button>
+            {caregiver ? (
+              <Link className="tc-btn tc-btn--primary" to={`/trees/${tree.id}/story/new`}>
+                이야기 덧붙이기
+              </Link>
+            ) : (
+              <button className="tc-btn tc-btn--primary" type="button" onClick={becomeCaregiver}>
+                나도 이 나무 돌보미 하기
+              </button>
+            )}
             <p className="micro tree-muted tree-source">가로수 정보: 서울 열린데이터광장 「서울시 가로수 위치 정보」</p>
           </div>
         </>
