@@ -5,6 +5,7 @@ import { authenticate, requireOfficer } from '../common/auth.js';
 import { applicationsRouter } from './applications.js';
 import { careGapsRouter } from './care-gaps.js';
 import { dashboardRouter } from './dashboard.js';
+import { exportsRouter } from './exports.js';
 import { incidentReportsRouter } from './incident-reports.js';
 import { monthlyReportsRouter } from './monthly-reports.js';
 import { rentalItemsRouter, rentalsRouter } from './rentals.js';
@@ -21,3 +22,4 @@ districtRouter.use('/rental-items', rentalItemsRouter); // #70 물품·재고
 districtRouter.use('/rentals', rentalsRouter); // #70 물품 신청 처리
 districtRouter.use('/incident-reports', incidentReportsRouter); // #20 신고 처리 큐
 districtRouter.use('/care-gaps', careGapsRouter); // #22 관리 사각지대·활동 공백
+districtRouter.use('/exports', exportsRouter); // #73 상부 보고·표창 대상 내려받기
