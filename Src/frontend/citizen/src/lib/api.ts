@@ -55,6 +55,39 @@ export type Tree = {
   hasOpenReport: boolean // 조치 완료 전인 이상 신고가 있는지
 }
 
+// ---- 타입 (openapi.yaml 의 TreeDetail, SpeciesCard, StoryEntry) ----
+export type SpeciesCard = {
+  id: string
+  name: string
+  scientificName: string
+  family: string
+  leafType: string
+  seoulCount: number // 서울 가로수 그루 수
+  rank: number // 서울 가로수 수종 순위
+  summary: string
+  features: string[]
+  seasons: { spring: string; summer: string; autumn: string; winter: string }
+  source: string // 화면에 함께 보여 줄 출처 문구
+}
+
+export type TreeDetail = Tree & {
+  agency: string // 관리청
+  address: string | null
+  sameRoadCount: number // 같은 자치구·노선의 나무 수
+  sameDongCount: number // 같은 자치구·동의 나무 수
+  speciesCard: SpeciesCard | null // 상위 10종 밖이면 null
+}
+
+export type StoryEntry = {
+  id: number
+  body: string
+  isPublic: boolean
+  author: { displayName: string } // 글쓴 돌보미가 고른 이름만
+  likeCount: number
+  replyCount: number
+  createdAt: string
+}
+
 // [서쪽 경도, 남쪽 위도, 동쪽 경도, 북쪽 위도]
 export type Bbox = [number, number, number, number]
 
@@ -139,6 +172,12 @@ export const api = {
     get<{ trees: Tree[]; truncated: boolean }>(
       `/trees?bbox=${bbox.join(',')}&limit=${limit}${district ? `&district=${encodeURIComponent(district)}` : ''}`,
     ),
+
+  // 나무 상세 (QR 이야기 페이지, 로그인 없음)
+  tree: (id: number) => get<TreeDetail>(`/trees/${id}`),
+
+  // 나무별 공동 이야기: 공개 글만, 오래된 순 (로그인 없음)
+  story: (id: number) => get<{ treeId: number; entries: StoryEntry[] }>(`/trees/${id}/story`),
 
   // 회원가입 (시민 계정만). 실명·연락처는 받지 않는다
   signup: (input: { email: string; password: string; nickname: string }) => post<AuthResponse>('/auth/signup', input),
