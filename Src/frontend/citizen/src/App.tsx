@@ -14,6 +14,7 @@ import RecordNewPage from './pages/RecordNewPage'
 import RecordsPage from './pages/RecordsPage'
 import ReportWritePage from './pages/ReportWritePage'
 import SignupPage from './pages/SignupPage'
+import TreeDetailPage from './pages/TreeDetailPage'
 import VolunteerHoursPage from './pages/VolunteerHoursPage'
 import { checkSavedLogin } from './store/authStore'
 
@@ -34,10 +35,7 @@ export default function App() {
         <Route path="signup" element={<SignupPage />} />
         <Route element={<AppLayout />}>
           <Route path="map" element={<MapPage />} />
-          <Route
-            path="trees/:id"
-            element={<PlaceholderPage title="나무 상세" issue="#38" plan="수종 카드, 공동 이야기, 나이테가 들어가요." />}
-          />
+          <Route path="trees/:id" element={<TreeDetailPage />} />
         </Route>
 
         {/* 로그인해야 */}

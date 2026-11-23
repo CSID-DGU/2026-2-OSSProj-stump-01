@@ -1,0 +1,80 @@
+/* 나무 상세·QR 이야기 페이지(#38) 전용 스타일 */
+
+/* 상단 바가 화면 좌우 여백 밖까지 가도록 page 안쪽 여백을 되돌린다 */
+.tree-detail > .tc-topbar {
+  margin: calc(var(--space-6) * -1) calc(var(--space-6) * -1) 0;
+}
+
+.tree-muted {
+  color: var(--muted);
+}
+
+/* QR로 들어온 사람에게만 보이는 인사 (시안 7번 화면의 첫 줄) */
+.tree-qr {
+  color: var(--muted);
+}
+
+.tree-tabs {
+  border-bottom: 1px solid var(--line);
+}
+
+.tree-source {
+  text-align: center;
+}
+
+/* 이야기 */
+.tree-stories {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tree-story {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.tree-story__body {
+  font-size: 16px;
+  line-height: 26px;
+  white-space: pre-wrap;
+}
+
+/* 수종 카드 */
+.species {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.species__features {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.species__season {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+}
+
+.species__season-name {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--muted);
+}
+
+.species__season.is-now .species__season-name {
+  color: var(--ink);
+  font-weight: 700;
+}
