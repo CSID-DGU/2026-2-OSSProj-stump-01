@@ -31,14 +31,14 @@ export async function createUser(opts: { role?: 'citizen' | 'officer'; agency?: 
   return { id, token: signToken(id) };
 }
 
-export async function createTree(opts: { agency?: string; species?: string } = {}) {
+export async function createTree(opts: { agency?: string; species?: string; code?: string } = {}) {
   seq += 1;
   const agency = opts.agency ?? '중구';
   const { rows } = await getPool().query<{ id: number }>(
-    `INSERT INTO trees (source_key, species, location, agency, district, dong, road_name, address)
-     VALUES ($1, $2, ST_SetSRID(ST_MakePoint(126.97 + $3::float8 / 1e6, 37.56), 4326)::geography, $4, $4, '명동', '명동길', '서울특별시 중구 명동 1')
+    `INSERT INTO trees (source_key, species, location, agency, district, dong, road_name, address, code)
+     VALUES ($1, $2, ST_SetSRID(ST_MakePoint(126.97 + $3::float8 / 1e6, 37.56), 4326)::geography, $4, $4, '명동', '명동길', '서울특별시 중구 명동 1', $5)
      RETURNING id`,
-    [`${agency}|test|${seq}`, opts.species ?? '은행나무', seq, agency],
+    [`${agency}|test|${seq}`, opts.species ?? '은행나무', seq, agency, opts.code ?? null],
   );
   return rows[0]!.id;
 }
@@ -49,13 +49,18 @@ export async function createApplication(opts: {
   status?: 'pending' | 'approved' | 'rejected' | 'ended';
   reviewedBy?: number;
   createdAt?: string;
+  /** false면 구청 양식(#6) 칸을 비운다(양식을 넣기 전에 낸 신청서) */
+  withForm?: boolean;
 }) {
   const status = opts.status ?? 'pending';
   const reviewed = status === 'approved' || status === 'rejected';
+  const withForm = opts.withForm ?? true;
   const { rows } = await getPool().query<{ id: number }>(
     `INSERT INTO caregiver_applications
-       (user_id, tree_id, status, period_start, period_end, motivation, reject_reason, reviewed_by, reviewed_at, created_at)
-     VALUES ($1, $2, $3, '2026-12-01', '2027-11-30', '집 앞 나무를 돌보고 싶어요', $4, $5, $6, COALESCE($7::timestamptz, now()))
+       (user_id, tree_id, status, period_start, period_end, motivation, reject_reason, reviewed_by, reviewed_at, created_at,
+        applicant_name, contact_person, headcount, postal_code, address, phone, participation_type, activity_plan, organization_intro, agreed_at)
+     VALUES ($1, $2, $3, '2026-12-01', '2027-11-30', '집 앞 나무를 돌보고 싶어요', $4, $5, $6, COALESCE($7::timestamptz, now()),
+             $8, NULL, $9, $10, $11, $12, $13, $14, NULL, $15)
      RETURNING id`,
     [
       opts.userId,
@@ -65,6 +70,14 @@ export async function createApplication(opts: {
       reviewed ? (opts.reviewedBy ?? null) : null,
       reviewed ? new Date() : null,
       opts.createdAt ?? null,
+      withForm ? '김은행' : null,
+      withForm ? 1 : null,
+      withForm ? '04536' : null,
+      withForm ? '서울특별시 중구 명동 2' : null,
+      withForm ? '010-1234-5678' : null,
+      withForm ? 'individual' : null,
+      withForm ? '주 1회 물 주기와 주변 정리' : null,
+      withForm ? new Date('2026-11-20T00:00:00Z') : null,
     ],
   );
   return rows[0]!.id;

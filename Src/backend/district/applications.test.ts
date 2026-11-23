@@ -16,7 +16,7 @@ beforeEach(async () => {
   await resetData();
   officer = await createUser({ role: 'officer', agency: '중구' });
   citizen = await createUser({ nickname: '은행지기' });
-  myTree = await createTree({ agency: '중구' });
+  myTree = await createTree({ agency: '중구', code: '11140-00001' });
   otherTree = await createTree({ agency: '종로구' });
 });
 afterAll(closePool);
@@ -38,7 +38,9 @@ describe('GET /admin/applications', () => {
       status: 'pending',
       periodStart: '2026-12-01',
       applicant: { id: citizen.id, nickname: '은행지기' },
-      tree: { id: myTree, species: '은행나무', caregiverCount: 1 },
+      applicantName: '김은행',
+      participationType: 'individual',
+      tree: { id: myTree, code: '11140-00001', species: '은행나무', caregiverCount: 1 },
     });
   });
 
@@ -72,6 +74,32 @@ describe('GET /admin/applications/:id', () => {
     const res = await request(api).get(`/admin/applications/${id}`).set(auth(officer.token));
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id, motivation: '집 앞 나무를 돌보고 싶어요' });
+  });
+
+  it('구청 양식(#6) 항목과 나무 관리번호를 준다', async () => {
+    const id = await createApplication({ userId: citizen.id, treeId: myTree });
+    const res = await request(api).get(`/admin/applications/${id}`).set(auth(officer.token));
+    expect(res.body).toMatchObject({
+      applicantName: '김은행',
+      contactPerson: null,
+      headcount: 1,
+      postalCode: '04536',
+      address: '서울특별시 중구 명동 2', // 신청인 주소
+      phone: '010-1234-5678',
+      participationType: 'individual',
+      activityPlan: '주 1회 물 주기와 주변 정리',
+      organizationIntro: null,
+      agreedAt: '2026-11-20T00:00:00.000Z',
+      tree: { code: '11140-00001', address: '서울특별시 중구 명동 1' }, // 나무 주소는 따로
+    });
+  });
+
+  it('양식을 넣기 전에 낸 신청서는 양식 칸이 null이다', async () => {
+    const id = await createApplication({ userId: citizen.id, treeId: myTree, withForm: false });
+    const res = await request(api).get(`/admin/applications/${id}`).set(auth(officer.token));
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ applicantName: null, headcount: null, participationType: null, agreedAt: null });
+    expect(res.body.motivation).toBe('집 앞 나무를 돌보고 싶어요');
   });
 });
 
