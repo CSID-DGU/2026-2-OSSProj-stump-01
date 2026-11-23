@@ -15,6 +15,8 @@ const REJECT_REASON_MAX_LENGTH = 500;
 
 const APPLICATION_STATUSES = ['pending', 'approved', 'rejected', 'ended'] as const;
 type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+// 참여 유형. 값은 시민-BE 신청서(#6)의 participation_type과 같다
+type ParticipationType = 'individual' | 'company' | 'civic_group' | 'religious_group' | 'village_community' | 'other';
 
 // ── 요청 형식 ──
 const listQuery = z.object({
@@ -37,7 +39,18 @@ export type ApplicationView = {
   status: ApplicationStatus;
   periodStart: string;
   periodEnd: string;
-  motivation: string | null;
+  // 구청 양식(#6) 항목. 양식을 넣기 전에 낸 신청서는 null이다
+  applicantName: string | null; // 신청인 성명 또는 단체명
+  contactPerson: string | null; // 기업·단체의 담당부서·담당자
+  headcount: number | null;
+  postalCode: string | null;
+  address: string | null; // 신청인 주소(나무 주소는 tree.address)
+  phone: string | null;
+  participationType: ParticipationType | null;
+  motivation: string | null; // 신청 사유
+  activityPlan: string | null;
+  organizationIntro: string | null;
+  agreedAt: string | null; // 참여 안내 사항 동의 시각
   rejectReason: string | null;
   createdAt: string;
   reviewedAt: string | null;
@@ -45,6 +58,7 @@ export type ApplicationView = {
   applicant: { id: number; nickname: string; realName: string | null };
   tree: {
     id: number;
+    code: string | null; // 관리번호(#4)
     species: string;
     district: string;
     dong: string | null;
@@ -56,10 +70,12 @@ export type ApplicationView = {
 
 // 목록·상세가 같은 모양을 쓰도록 SELECT를 하나로 둔다. $1 = 담당자 관리청
 const SELECT_APPLICATION = `
-  SELECT a.id, a.status, a.period_start, a.period_end, a.motivation, a.reject_reason,
-         a.created_at, a.reviewed_at, a.reviewed_by,
+  SELECT a.id, a.status, a.period_start, a.period_end,
+         a.applicant_name, a.contact_person, a.headcount, a.postal_code, a.address AS applicant_address, a.phone,
+         a.participation_type, a.motivation, a.activity_plan, a.organization_intro, a.agreed_at,
+         a.reject_reason, a.created_at, a.reviewed_at, a.reviewed_by,
          u.id AS user_id, u.nickname, u.real_name,
-         t.id AS tree_id, t.species, t.district, t.dong, t.road_name, t.address,
+         t.id AS tree_id, t.code, t.species, t.district, t.dong, t.road_name, t.address,
          (SELECT count(*) FROM caregiver_applications c
            WHERE c.tree_id = t.id AND c.status = 'approved') AS caregiver_count
   FROM caregiver_applications a
@@ -72,7 +88,17 @@ type ApplicationRow = {
   status: ApplicationStatus;
   period_start: string;
   period_end: string;
+  applicant_name: string | null;
+  contact_person: string | null;
+  headcount: number | null;
+  postal_code: string | null;
+  applicant_address: string | null;
+  phone: string | null;
+  participation_type: ParticipationType | null;
   motivation: string | null;
+  activity_plan: string | null;
+  organization_intro: string | null;
+  agreed_at: Date | null;
   reject_reason: string | null;
   created_at: Date;
   reviewed_at: Date | null;
@@ -81,6 +107,7 @@ type ApplicationRow = {
   nickname: string;
   real_name: string | null;
   tree_id: number;
+  code: string | null;
   species: string;
   district: string;
   dong: string | null;
@@ -95,7 +122,17 @@ function toView(r: ApplicationRow): ApplicationView {
     status: r.status,
     periodStart: r.period_start,
     periodEnd: r.period_end,
+    applicantName: r.applicant_name,
+    contactPerson: r.contact_person,
+    headcount: r.headcount,
+    postalCode: r.postal_code,
+    address: r.applicant_address,
+    phone: r.phone,
+    participationType: r.participation_type,
     motivation: r.motivation,
+    activityPlan: r.activity_plan,
+    organizationIntro: r.organization_intro,
+    agreedAt: r.agreed_at?.toISOString() ?? null,
     rejectReason: r.reject_reason,
     createdAt: r.created_at.toISOString(),
     reviewedAt: r.reviewed_at?.toISOString() ?? null,
@@ -103,6 +140,7 @@ function toView(r: ApplicationRow): ApplicationView {
     applicant: { id: r.user_id, nickname: r.nickname, realName: r.real_name },
     tree: {
       id: r.tree_id,
+      code: r.code,
       species: r.species,
       district: r.district,
       dong: r.dong,
