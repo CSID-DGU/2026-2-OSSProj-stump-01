@@ -49,6 +49,8 @@ export async function createApplication(opts: {
   status?: 'pending' | 'approved' | 'rejected' | 'ended';
   reviewedBy?: number;
   createdAt?: string;
+  periodStart?: string; // 기본 2026-12-01
+  periodEnd?: string; // 기본 2027-11-30
   /** false면 구청 양식(#6) 칸을 비운다(양식을 넣기 전에 낸 신청서) */
   withForm?: boolean;
 }) {
@@ -59,7 +61,7 @@ export async function createApplication(opts: {
     `INSERT INTO caregiver_applications
        (user_id, tree_id, status, period_start, period_end, motivation, reject_reason, reviewed_by, reviewed_at, created_at,
         applicant_name, contact_person, headcount, postal_code, address, phone, participation_type, activity_plan, organization_intro, agreed_at)
-     VALUES ($1, $2, $3, '2026-12-01', '2027-11-30', '집 앞 나무를 돌보고 싶어요', $4, $5, $6, COALESCE($7::timestamptz, now()),
+     VALUES ($1, $2, $3, $16, $17, '집 앞 나무를 돌보고 싶어요', $4, $5, $6, COALESCE($7::timestamptz, now()),
              $8, NULL, $9, $10, $11, $12, $13, $14, NULL, $15)
      RETURNING id`,
     [
@@ -78,7 +80,19 @@ export async function createApplication(opts: {
       withForm ? 'individual' : null,
       withForm ? '주 1회 물 주기와 주변 정리' : null,
       withForm ? new Date('2026-11-20T00:00:00Z') : null,
+      opts.periodStart ?? '2026-12-01',
+      opts.periodEnd ?? '2027-11-30',
     ],
+  );
+  return rows[0]!.id;
+}
+
+/** 활동 기록 하나를 만든다(records.type = 'activity') */
+export async function createActivity(opts: { userId: number; treeId: number; date: string; minutes?: number }) {
+  const { rows } = await getPool().query<{ id: number }>(
+    `INSERT INTO records (tree_id, user_id, type, activity_date, duration_min)
+     VALUES ($1, $2, 'activity', $3, $4) RETURNING id`,
+    [opts.treeId, opts.userId, opts.date, opts.minutes ?? 30],
   );
   return rows[0]!.id;
 }

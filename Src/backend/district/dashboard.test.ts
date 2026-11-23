@@ -62,6 +62,7 @@ describe('GET /admin/dashboard', () => {
   it('내 관리청 기준으로 처리할 일과 이달 현황을 센다', async () => {
     const tree = await createTree({ agency: '중구' });
     const otherTree = await createTree({ agency: '종로구' });
+    await createTree({ agency: '중구' }); // 돌보미 없는 나무(관리 사각지대)
     const [a, b, c, d] = [await createUser({ nickname: '가' }), await createUser({ nickname: '나' }), await createUser({ nickname: '다' }), await createUser({ nickname: '라' })];
 
     // 돌보미: a·b·c는 11월에 활동 중, d는 기간이 10월에 끝남
@@ -111,6 +112,7 @@ describe('GET /admin/dashboard', () => {
         missingReportList: [{ userId: c.id, nickname: '다', treeCount: 1 }],
       },
       volunteerHours: { minutes: 90, people: 1 },
+      careGaps: { noCaregiver: 1, inactive: 0 }, // tree는 11월 보고서의 활동 기록이 있어 끊기지 않음
     });
   });
 
@@ -153,6 +155,7 @@ describe('GET /admin/dashboard', () => {
       incidentReports: { pending: 0, inspecting: 0, oldestUnresolvedAt: null },
       caregivers: { active: 0, missingReport: 0, missingReportList: [] },
       volunteerHours: { minutes: 0, people: 0 },
+      careGaps: { noCaregiver: 0, inactive: 0 },
       organizations: [],
     });
   });
