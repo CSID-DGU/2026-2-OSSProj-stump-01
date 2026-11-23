@@ -267,6 +267,79 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /admin/exports/monthly:
+    get:
+      tags: [구청]
+      summary: 월간 상부 보고 내려받기 (엑셀에서 열리는 CSV)
+      description: |
+        그 달 관리청 나무의 구·동별 돌봄 현황과 합계, 월간 보고서·물품 지급 요약. 달은 한국 시간 기준이다.
+        - 구·동은 나무가 서 있는 위치 기준이다(관리청과 다를 수 있다).
+        - 인정 봉사시간은 그 달 승인된 보고서의 기록 시간을 기록한 나무 위치로 나눈 값이다.
+        - 합계의 사람 수(돌보미, 봉사 인정 인원)는 여러 동에서 활동한 사람을 한 번만 센다.
+        - organizationId를 주면 그 단체 회원의 활동만 센다(관리 나무 수는 그대로).
+        - CSV는 UTF-8 BOM·CRLF라 엑셀에서 바로 열린다. 사용자가 쓴 글이 =, +, -, @로 시작하면 앞에 '를 붙인다(수식 실행 방지).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: month, in: query, description: "YYYY-MM, 없으면 이번 달", schema: { type: string, example: 2026-11 } }
+        - { name: organizationId, in: query, schema: { type: integer } }
+        - { name: format, in: query, description: csv(내려받기) 또는 json(화면 미리보기), schema: { type: string, enum: [csv, json], default: csv } }
+      responses:
+        '200':
+          description: 월간 보고. 파일 이름 `treecare-monthly-YYYY-MM.csv`
+          content:
+            text/csv:
+              schema: { type: string }
+            application/json:
+              schema: { $ref: '#/components/schemas/MonthlyExport' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /admin/exports/commendations:
+    get:
+      tags: [구청]
+      summary: 연말 표창 대상 내려받기 (CSV)
+      description: |
+        그 해(한국 시간) 이 관리청에서 승인된 봉사시간이 minHours 이상인 돌보미를 많은 순으로 최대 500명. 같은 시간이면 같은 순위다.
+        실명이 들어가는 개인정보라 구청 담당자만 내려받는다. 표창 기준 시간은 구청 확인 전(#59)이라 요청으로 받는다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: year, in: query, description: 없으면 올해, schema: { type: integer, example: 2026 } }
+        - { name: minHours, in: query, description: 이 시간 이상만(기본 0), schema: { type: number, default: 0 } }
+        - { name: organizationId, in: query, schema: { type: integer } }
+        - { name: format, in: query, schema: { type: string, enum: [csv, json], default: csv } }
+      responses:
+        '200':
+          description: 표창 대상. 파일 이름 `treecare-commendations-YYYY.csv`
+          content:
+            text/csv:
+              schema: { type: string }
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agency: { type: string }
+                  year: { type: integer }
+                  minHours: { type: number }
+                  organization: { type: ['object', 'null'], properties: { id: { type: integer }, name: { type: string } } }
+                  people:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rank: { type: integer }
+                        userId: { type: integer }
+                        nickname: { type: string }
+                        realName: { type: [string, 'null'] }
+                        volunteerMinutes: { type: integer, description: 그 해 승인된 봉사시간(분) }
+                        approvedReports: { type: integer }
+                        trees: { type: integer, description: 승인된 보고서의 기록이 있는 나무 수 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /admin/rental-items:
     get:
       tags: [구청]
@@ -1499,6 +1572,48 @@ components:
               roadName: { type: [string, 'null'] }
               caregiverCount: { type: integer, description: 이 달 활동 기간이 걸친 돌보미 수 }
               lastActivityDate: { type: [string, 'null'], format: date, description: 이 달 전 마지막 활동일. 활동한 적 없으면 null }
+    ExportRegionCounts:
+      type: object
+      properties:
+        trees: { type: integer, description: 관리 나무 }
+        caredTrees: { type: integer, description: 그 달 돌보미가 있던 나무 }
+        caregivers: { type: integer, description: 그 달 활동 기간이 걸친 돌보미 수 }
+        activityRecords: { type: integer, description: 그 달 활동 기록 수 }
+        activityMinutes: { type: integer }
+        volunteerMinutes: { type: integer, description: 그 달 승인된 봉사시간(기록한 나무 위치 기준) }
+        volunteerPeople: { type: integer }
+        incidentsReceived: { type: integer, description: 그 달 접수된 이상 신고 }
+        incidentsResolved: { type: integer, description: 그 달 조치 완료한 이상 신고 }
+    MonthlyExport:
+      type: object
+      properties:
+        agency: { type: string }
+        month: { type: string, example: 2026-11 }
+        organization: { type: ['object', 'null'], properties: { id: { type: integer }, name: { type: string } } }
+        regions:
+          type: array
+          items:
+            allOf:
+              - type: object
+                properties:
+                  district: { type: string }
+                  dong: { type: [string, 'null'] }
+              - { $ref: '#/components/schemas/ExportRegionCounts' }
+        totals: { $ref: '#/components/schemas/ExportRegionCounts' }
+        monthlyReports:
+          type: object
+          properties:
+            submitted: { type: integer }
+            approved: { type: integer }
+            revisionRequested: { type: integer }
+        rentals:
+          type: array
+          items:
+            type: object
+            properties:
+              item: { type: string }
+              approvedQuantity: { type: integer, description: 그 달 승인한 수량(이미 수령한 것 포함) }
+              receivedQuantity: { type: integer, description: 그 달 수령한 수량 }
     MonthlyCareGap:
       type: object
       properties:
