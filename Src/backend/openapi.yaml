@@ -202,6 +202,7 @@ paths:
         - 미제출 돌보미: 그 달에 활동 기간이 걸친 승인된 돌보미 중 그 달에 이 관리청으로 보고서를 하나도 내지 않은 사람
         - 이달 봉사시간: 그 달에 승인되어 기록된 봉사시간
         - organizationId를 주면 그 단체 회원으로 좁힌다. `organizations`는 필터에 보여 줄 단체 목록이다.
+        - 관리 사각지대(`careGaps`, #22)는 나무 기준이라 단체 필터를 받지 않는다. 자세한 것은 `/admin/care-gaps`.
       security: [{ bearerAuth: [] }]
       parameters:
         - { name: month, in: query, description: "YYYY-MM, 없으면 이번 달", schema: { type: string, example: 2026-11 } }
@@ -212,6 +213,56 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Dashboard' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/care-gaps:
+    get:
+      tags: [구청]
+      summary: 관리 사각지대 (돌보미 없는 나무, 이 달 활동이 끊긴 나무)
+      description: |
+        담당자 관리청의 나무를 나무가 서 있는 구·동별로 센다. 달은 한국 시간 달력 기준이다.
+        - 돌보미 없음: 그 달에 활동 기간이 걸친 승인된 신청서가 없는 나무(대기 신청만 있는 나무, 기간이 끝난 나무 포함)
+        - 활동 끊김: 돌보미는 있는데 그 달 활동 기록이 하나도 없는 나무. 이번 달이면 오늘까지의 기록으로 본다.
+        - `inactiveTrees`는 활동이 끊긴 나무를 오래 끊긴 순(활동한 적 없는 나무 먼저)으로 최대 100그루 준다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: month, in: query, description: "YYYY-MM, 없으면 이번 달", schema: { type: string, example: 2026-07 } }
+      responses:
+        '200':
+          description: 사각지대 집계
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CareGaps' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/care-gaps/monthly:
+    get:
+      tags: [구청]
+      summary: 연간 월별 활동 공백 (여름 공백 표시용)
+      description: |
+        그 해 1월부터 매달 돌보미가 있던 나무 중 활동이 끊긴 나무 수와 비율, 그 달 폭염일 수(서울 관측소)를 준다.
+        올해면 이번 달까지만, 아직 오지 않은 해면 빈 목록이다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: year, in: query, description: 없으면 올해, schema: { type: integer, example: 2026 } }
+      responses:
+        '200':
+          description: 월별 활동 공백
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  agency: { type: string }
+                  year: { type: integer }
+                  timeZone: { type: string, example: Asia/Seoul }
+                  months:
+                    type: array
+                    items: { $ref: '#/components/schemas/MonthlyCareGap' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -1400,6 +1451,12 @@ components:
           properties:
             minutes: { type: integer, description: 이달 기록된 봉사시간(분) }
             people: { type: integer, description: 이달 봉사시간을 인정받은 사람 수 }
+        careGaps:
+          type: object
+          description: 관리 사각지대(#22). 단체 필터와 상관없이 관리청 전체
+          properties:
+            noCaregiver: { type: integer, description: 돌보미가 없는 나무 }
+            inactive: { type: integer, description: 돌보미는 있는데 이달 활동이 끊긴 나무 }
         organizations:
           type: array
           items:
@@ -1407,6 +1464,50 @@ components:
             properties:
               id: { type: integer }
               name: { type: string }
+    CareGapCounts:
+      type: object
+      properties:
+        trees: { type: integer, description: 관리 나무 수 }
+        noCaregiver: { type: integer, description: 돌보미가 없는 나무 }
+        inactive: { type: integer, description: 돌보미는 있는데 이 달 활동이 끊긴 나무 }
+    CareGaps:
+      type: object
+      properties:
+        agency: { type: string }
+        month: { type: string, example: 2026-07 }
+        totals: { $ref: '#/components/schemas/CareGapCounts' }
+        byDong:
+          type: array
+          description: 나무가 서 있는 구·동별. 구, 동 이름순(동 없음은 끝)
+          items:
+            allOf:
+              - type: object
+                properties:
+                  district: { type: string }
+                  dong: { type: [string, 'null'] }
+              - { $ref: '#/components/schemas/CareGapCounts' }
+        inactiveTrees:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              code: { type: [string, 'null'], description: 관리번호 }
+              species: { type: string }
+              district: { type: string }
+              dong: { type: [string, 'null'] }
+              roadName: { type: [string, 'null'] }
+              caregiverCount: { type: integer, description: 이 달 활동 기간이 걸친 돌보미 수 }
+              lastActivityDate: { type: [string, 'null'], format: date, description: 이 달 전 마지막 활동일. 활동한 적 없으면 null }
+    MonthlyCareGap:
+      type: object
+      properties:
+        month: { type: string, example: 2026-07 }
+        caredTrees: { type: integer, description: 돌보미가 있던 나무 }
+        activeTrees: { type: integer, description: 그중 활동 기록이 있는 나무 }
+        inactiveTrees: { type: integer, description: 그중 활동이 끊긴 나무 }
+        inactiveRate: { type: [number, 'null'], description: inactiveTrees / caredTrees (소수 셋째 자리). 돌보미 있는 나무가 없으면 null }
+        heatwaveDays: { type: integer, description: 그 달 폭염일 수(서울 관측소) }
     RentalItem:
       type: object
       properties:
