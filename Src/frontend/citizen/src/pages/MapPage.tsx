@@ -1,16 +1,21 @@
 // #37 나무 지도. 지도 범위의 가로수를 백엔드(GET /trees)에서 받아 점으로 찍고, 누르면 나무 상세로 간다.
 // Src/.env 에 VITE_KAKAO_MAP_KEY 가 있으면 카카오맵, 없으면 OSM 임시 지도(TreeMap)로 뜬다.
 // 공용 지도 컴포넌트(frontend/shared, #27)가 나오면 지도 부분을 그것으로 바꾼다.
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import PageTitle from '../components/PageTitle'
 import KakaoTreeMap from '../components/KakaoTreeMap'
 import TreeMap from '../components/TreeMap'
 import { api, ApiError, type Bbox, type Tree } from '../lib/api'
 import { KAKAO_MAP_KEY } from '../lib/kakao'
+import { todayKey } from '../lib/date'
+import { TREE_KIND_LABEL, countKinds, treeKind, type TreeKind } from '../lib/treeKind'
 import { MAX_TREES } from '../content/applicationForm'
 import { addToCart, removeFromCart, useApplyCart } from '../store/applyCart'
+import { useAuth } from '../store/authStore'
 import './MapPage.css'
+
+const NO_TREES: ReadonlySet<number> = new Set()
 
 // 지도에 보이는 나무 이름 (노선 → 동 → 자치구 중 있는 것)
 const placeOf = (t: Tree) => t.roadName ?? t.dong ?? t.district
@@ -34,6 +39,29 @@ export default function MapPage() {
   const cart = useApplyCart() // 돌보미 신청할 나무 (#40)
   const useKakao = Boolean(KAKAO_MAP_KEY)
   const loading = loadedBbox !== bbox // 지금 범위의 응답을 아직 못 받았으면 불러오는 중
+
+  // 내가 돌보는 나무 (#37 "돌보미 나무·내 나무 구분"). 로그인했을 때만 내 신청 현황으로 정한다
+  const signedIn = useAuth().status === 'signed-in'
+  const [myTreeIds, setMyTreeIds] = useState<ReadonlySet<number>>(NO_TREES)
+  useEffect(() => {
+    if (!signedIn) return
+    let alive = true
+    const today = todayKey()
+    api
+      .myApplications()
+      .then((r) => {
+        if (!alive) return
+        const ids = r.applications.filter((a) => a.status === 'approved' && a.periodStart <= today && today <= a.periodEnd).map((a) => a.tree.id)
+        setMyTreeIds(new Set(ids))
+      })
+      .catch(() => {}) // 못 받아도 지도는 그대로 보여 준다 (내 나무 구분만 빠짐)
+    return () => {
+      alive = false
+    }
+  }, [signedIn])
+  const mine = signedIn ? myTreeIds : NO_TREES
+  const kindOf = useCallback((t: Tree): TreeKind => treeKind(t, mine), [mine])
+  const kinds = countKinds(trees, mine)
 
   useEffect(() => {
     let alive = true
@@ -119,6 +147,7 @@ export default function MapPage() {
             setBbox(b)
           }}
           flyTo={flyTo}
+          kindOf={kindOf}
         />
       ) : (
         <TreeMap
@@ -129,8 +158,19 @@ export default function MapPage() {
           onPan={pan}
           onZoom={(dir) => zoom(dir === 'in' ? 1 / ZOOM_STEP : ZOOM_STEP)}
           me={flyTo}
+          kindOf={kindOf}
         />
       )}
+
+      {/* #37 나무 구분 범례: 이 범위의 그루 수와 함께 */}
+      <ul className="map-legend caption" aria-label="지도의 나무 표시">
+        {(signedIn ? (['mine', 'cared', 'waiting'] as TreeKind[]) : (['cared', 'waiting'] as TreeKind[])).map((k) => (
+          <li key={k} className="map-legend__item">
+            <span className={`map-legend__dot map-legend__dot--${k}`} aria-hidden="true" />
+            {TREE_KIND_LABEL[k]} {loading ? '' : kinds[k]}
+          </li>
+        ))}
+      </ul>
 
       {error && (
         <p className="map-page__notice map-page__notice--error">
@@ -150,7 +190,12 @@ export default function MapPage() {
             </span>
             <span className="tc-tree__meta">{selected.code ?? `${selected.district} ${selected.dong ?? ''}`} · 자세히</span>
           </Link>
-          {/* #40 돌보미 신청: 이 나무를 신청 목록에 담거나 뺀다 */}
+          <div className="tc-row">
+            <span className="caption map-page__kind">{TREE_KIND_LABEL[kindOf(selected)]}</span>
+            <span className="caption map-page__kind">{selected.caregiverCount > 0 ? `돌보미 ${selected.caregiverCount}명` : '돌보미 없음'}</span>
+          </div>
+          {/* #40 돌보미 신청: 이 나무를 신청 목록에 담거나 뺀다 (이미 내 나무면 그리지 않는다) */}
+          {kindOf(selected) !== 'mine' && (
           <div className="tc-choices__list map-page__apply">
             {cart.some((t) => t.id === selected.id) ? (
               <button type="button" className="tc-choice" aria-pressed="true" onClick={() => removeFromCart(selected.id)}>
@@ -169,6 +214,7 @@ export default function MapPage() {
               </button>
             )}
           </div>
+          )}
         </div>
       ) : (
         <div className="map-page__stats">

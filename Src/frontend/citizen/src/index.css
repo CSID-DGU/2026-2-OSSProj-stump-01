@@ -30,6 +30,11 @@ img {
   max-width: 100%;
 }
 
+/* hidden 속성을 붙인 요소는 display를 준 클래스가 있어도 숨긴다 */
+[hidden] {
+  display: none !important;
+}
+
 /* 앱 껍데기: 모바일은 폭 전체, 내용 + 하단 탭 */
 .app-shell {
   min-height: 100dvh;

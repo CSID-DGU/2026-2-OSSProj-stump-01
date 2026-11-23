@@ -12,6 +12,7 @@ interface Props {
   onPan: (dLng: number, dLat: number) => void;
   onZoom: (dir: "in" | "out") => void;
   me?: { lat: number; lng: number } | null; // 내 위치 (있으면 파란 점)
+  kindOf?: (tree: Tree) => string; // 나무 점에 붙일 종류 이름 (CSS 클래스 tree--종류). 없으면 모두 같은 점
 }
 
 const CLICK_TOLERANCE_PX = 4; // 이 거리 안에서 떼면 끌기가 아니라 클릭
@@ -28,7 +29,7 @@ const toWorldY = (lat: number) => {
   return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2;
 };
 
-export default function TreeMap({ bbox, trees, selectedId, onSelect, onPan, onZoom, me }: Props) {
+export default function TreeMap({ bbox, trees, selectedId, onSelect, onPan, onZoom, me, kindOf }: Props) {
   const [minLng, minLat, maxLng, maxLat] = bbox;
   // bbox 의 월드 좌표 범위. 점·타일 모두 이 범위 안의 비율(0~1)로 놓는다.
   const wx0 = toWorldX(minLng), wx1 = toWorldX(maxLng);
@@ -125,7 +126,7 @@ export default function TreeMap({ bbox, trees, selectedId, onSelect, onPan, onZo
                 cx={fx(t.location.lng) * 100}
                 cy={fy(t.location.lat) * 100}
                 r={on ? 1.6 : 1}
-                className={on ? "tree on" : "tree"}
+                className={`tree${kindOf ? ` tree--${kindOf(t)}` : ""}${on ? " on" : ""}`}
               >
                 <title>{t.species} · {t.roadName ?? t.dong ?? t.district}</title>
               </circle>
