@@ -1142,7 +1142,17 @@ components:
         status: { type: string, enum: [pending, approved, rejected, ended], description: 대기 / 승인 / 반려 / 종료 }
         periodStart: { type: string, format: date }
         periodEnd: { type: string, format: date }
-        motivation: { type: [string, 'null'], description: 참여 동기 }
+        applicantName: { type: [string, 'null'], description: 신청인 성명/단체명. 양식(#6) 항목은 양식 반영 전 신청서면 null }
+        contactPerson: { type: [string, 'null'], description: 기업·단체의 담당부서·담당자 }
+        headcount: { type: [integer, 'null'] }
+        postalCode: { type: [string, 'null'] }
+        address: { type: [string, 'null'], description: 신청인 주소(나무 주소는 tree.address) }
+        phone: { type: [string, 'null'] }
+        participationType: { type: [string, 'null'], enum: [individual, company, civic_group, religious_group, village_community, other, null] }
+        motivation: { type: [string, 'null'], description: 신청사유 }
+        activityPlan: { type: [string, 'null'] }
+        organizationIntro: { type: [string, 'null'] }
+        agreedAt: { type: [string, 'null'], format: date-time, description: 안내 사항 동의 시각 }
         rejectReason: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         reviewedAt: { type: [string, 'null'], format: date-time }
@@ -1157,6 +1167,7 @@ components:
           type: object
           properties:
             id: { type: integer }
+            code: { type: [string, 'null'], example: 11140-00123, description: 관리번호 }
             species: { type: string, example: 은행나무 }
             district: { type: string, description: 위치한 자치구 }
             dong: { type: [string, 'null'] }
