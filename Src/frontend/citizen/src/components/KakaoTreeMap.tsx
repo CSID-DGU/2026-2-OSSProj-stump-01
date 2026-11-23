@@ -15,9 +15,10 @@ interface Props {
   onSelect: (tree: Tree) => void;
   onBoundsChange: (bbox: Bbox) => void;
   flyTo?: { lat: number; lng: number } | null; // 바뀌면 그 위치로 이동
+  kindOf?: (tree: Tree) => string; // 나무 점에 붙일 종류 이름 (CSS 클래스 tree-dot--종류). 없으면 모두 같은 점
 }
 
-export default function KakaoTreeMap({ appKey, center, level, trees, selectedId, onSelect, onBoundsChange, flyTo }: Props) {
+export default function KakaoTreeMap({ appKey, center, level, trees, selectedId, onSelect, onBoundsChange, flyTo, kindOf }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const sdkRef = useRef<KakaoSdk | null>(null);
   const mapRef = useRef<KakaoMap | null>(null);
@@ -74,10 +75,14 @@ export default function KakaoTreeMap({ appKey, center, level, trees, selectedId,
     }
   }, [trees, ready]);
 
-  // 선택 강조
+  // 선택 강조 + 나무 종류(내 나무 등). 종류는 내 신청 현황이 늦게 와도 바뀌도록 여기서 다시 붙인다
   useEffect(() => {
-    for (const [id, d] of dots.current) d.node.classList.toggle("on", id === selectedId);
-  }, [selectedId, trees]);
+    const byId = new Map(trees.map((t) => [t.id, t]));
+    for (const [id, d] of dots.current) {
+      const t = byId.get(id);
+      d.node.className = `tree-dot${kindOf && t ? ` tree-dot--${kindOf(t)}` : ""}${id === selectedId ? " on" : ""}`;
+    }
+  }, [selectedId, trees, kindOf]);
 
   // 현재 위치로 이동 + 내 위치 점 표시 (다시 누르면 위치를 갱신)
   useEffect(() => {

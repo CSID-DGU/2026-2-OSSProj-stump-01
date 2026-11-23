@@ -47,3 +47,45 @@
   min-height: var(--tap-target);
   align-items: center;
 }
+
+/* #37 나무 구분: 내가 돌보는 나무(노랑) · 돌보미가 있는 나무(초록) · 돌보미를 기다리는 나무(속 빈 초록) */
+.map .tree--mine { fill: var(--mark); stroke: var(--ink); stroke-width: 0.5; }
+.map .tree--waiting { fill: var(--surface); stroke: var(--primary); stroke-width: 0.5; }
+.map .tree.on { stroke: var(--ink); stroke-width: 0.8; }
+.map .tree--cared.on { fill: var(--primary); }
+.map .tree--waiting.on { fill: var(--surface); }
+.tree-dot--mine::after { background: var(--mark); border-color: var(--ink); }
+.tree-dot--waiting::after { background: var(--surface); border: 2px solid var(--primary); }
+.tree-dot.tree-dot--cared.on::after { background: var(--primary); }
+.tree-dot.tree-dot--waiting.on::after { background: var(--surface); border: 2.5px solid var(--ink); }
+
+.map-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  color: var(--muted);
+}
+
+.map-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.map-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary);
+  border: 1.5px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--line-strong);
+}
+
+.map-legend__dot--mine { background: var(--mark); border-color: var(--ink); }
+.map-legend__dot--waiting { background: var(--surface); border: 2px solid var(--primary); box-shadow: none; }
+
+.map-page__kind { color: var(--muted); }

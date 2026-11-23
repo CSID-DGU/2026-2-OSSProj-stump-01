@@ -58,6 +58,7 @@ export type Tree = {
   dong: string | null
   roadName: string | null
   caregiverCount: number // 승인된 돌보미 수
+  careGap?: 'no_caregiver' | 'inactive' | null // 관리 사각지대(#22): 돌보미 없음 / 이번 달 활동 끊김 / null = 이번 달 활동함
   hasOpenReport: boolean // 조치 완료 전인 이상 신고가 있는지
 }
 
