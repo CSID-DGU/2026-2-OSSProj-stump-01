@@ -223,6 +223,32 @@ export type ApiRecord = {
   tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null }
 }
 
+// ---- 타입: 나이테 (#44 화면이 쓰는 모양. GET /trees/{id}/rings?year= 는 #12에서 이 모양으로 만들기로 제안) ----
+export type RingMonth = {
+  month: number // 1~12
+  rainMm: number | null // 그 달 강수량 합계 (기상청 ASOS 일자료)
+  tempMaxAvg: number | null // 그 달 평균 최고기온 (색)
+  heatDays: number // 최고기온 33℃ 이상인 날 수
+  careMinutes: number // 그 나무에 승인된 보고서의 활동 시간 합계 (모든 돌보미)
+  careCount: number // 활동 기록 수
+  activityDays: number[] // 활동 기록이 있는 날 (점)
+  stories: { id: number; day: number }[] // 공개 이야기 (별, 누르면 /stories/{id})
+  reported: number // 그 달 접수된 신고 수 (common/incident-markers.ts)
+  resolved: number // 그 달 조치 완료된 신고 수
+  reactions: number // 그 달 받은 호응(좋아요·한 줄 응답) 수
+}
+
+export type TreeRings = {
+  treeId: number
+  year: number
+  months: RingMonth[] // 1월~12월, 12개
+}
+
+// 이야기 한 편 (GET /story-entries/{id})
+export type StoryEntryDetail = StoryEntry & {
+  tree: { id: number; code: string | null; species: string; district: string; roadName: string | null }
+}
+
 // 서버가 준 사진 경로("/uploads/…")를 화면에서 쓸 주소로. 개발 서버는 /api 를 백엔드로 넘긴다
 export function photoUrl(path: string): string {
   return `/api${path}`
@@ -291,6 +317,12 @@ export const api = {
 
   // 나무별 공동 이야기: 공개 글만, 오래된 순 (로그인 없음)
   story: (id: number) => get<{ treeId: number; entries: StoryEntry[] }>(`/trees/${id}/story`),
+
+  // 나무의 한 해 나이테 (#12, 아직 없으면 404 → 화면이 예시로 그린다)
+  rings: (treeId: number, year: number) => get<TreeRings>(`/trees/${treeId}/rings?year=${year}`),
+
+  // 이야기 한 편 (나이테의 별을 누르면 오는 곳, 로그인 없음). 비공개 글은 404
+  storyEntry: (id: number) => get<StoryEntryDetail>(`/story-entries/${id}`),
 
   // 이야기 덧붙이기 (#64). 그 나무의 승인된 돌보미(오늘이 활동 기간 안)만 쓸 수 있다(403)
   addStoryEntry: (treeId: number, input: { body: string; authorDisplay: 'nickname' | 'real_name'; isPublic: boolean }) =>
