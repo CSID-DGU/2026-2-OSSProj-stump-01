@@ -3,14 +3,19 @@
 // 다른 화면을 API에 연결할 때 여기에 더한다.
 import { getToken } from './token'
 
+// 입력 값 오류(400)일 때 서버가 알려 주는 칸별 문제. path[0]이 칸 이름이다 (예: ['phone'])
+export type ApiIssue = { path: (string | number)[]; message: string }
+
 export class ApiError extends Error {
   status: number
   code: string
+  issues: ApiIssue[]
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, issues: ApiIssue[] = []) {
     super(message)
     this.status = status
     this.code = code
+    this.issues = issues
   }
 }
 
@@ -29,7 +34,7 @@ async function request<T>(method: 'GET' | 'POST' | 'PATCH', path: string, body?:
   }
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
-    throw new ApiError(res.status, data?.error?.code ?? 'ERROR', data?.error?.message ?? '요청이 실패했어요.')
+    throw new ApiError(res.status, data?.error?.code ?? 'ERROR', data?.error?.message ?? '요청이 실패했어요.', data?.error?.issues ?? [])
   }
   return data as T
 }
@@ -87,6 +92,47 @@ export type Notification = {
   createdAt: string
 }
 
+// ---- 타입 (openapi.yaml 의 MyApplication) ----
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'ended' // 대기 / 승인 / 반려 / 종료
+
+export type MyApplication = {
+  id: number
+  status: ApplicationStatus
+  periodStart: string
+  periodEnd: string
+  applicantName: string | null
+  contactPerson: string | null
+  headcount: number | null
+  postalCode: string | null
+  address: string | null
+  phone: string | null
+  participationType: string | null
+  motivation: string | null
+  activityPlan: string | null
+  organizationIntro: string | null
+  agreedAt: string | null
+  rejectReason: string | null // 반려 사유
+  createdAt: string
+  reviewedAt: string | null
+  tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null }
+}
+
+export type NewApplication = {
+  treeIds: number[]
+  periodStart: string // YYYY-MM-DD, 오늘이거나 그 뒤
+  applicantName: string
+  contactPerson: string | null // 개인·가족이 아니면 필수
+  headcount: number
+  postalCode: string // 5자리 숫자
+  address: string
+  phone: string
+  participationType: string
+  motivation: string
+  activityPlan: string
+  organizationIntro: string | null
+  agreed: true
+}
+
 export const api = {
   // 지도 범위 안의 나무. 로그인 없이 부른다.
   trees: (bbox: Bbox, limit: number, district?: string) =>
@@ -108,4 +154,10 @@ export const api = {
 
   // 알림 읽음 처리 (이미 읽었으면 처음 읽은 시각을 유지)
   readNotification: (id: number) => request<Notification>('PATCH', `/notifications/${id}/read`),
+
+  // 돌보미 신청서 제출. 나무마다 신청서가 하나씩 생긴다. 한 그루라도 막히면 아무것도 저장하지 않는다
+  apply: (input: NewApplication) => post<{ applications: MyApplication[] }>('/applications', input),
+
+  // 내 신청서 (최신순). 반려됐으면 반려 사유가 함께 온다
+  myApplications: () => get<{ applications: MyApplication[] }>('/applications/me'),
 }

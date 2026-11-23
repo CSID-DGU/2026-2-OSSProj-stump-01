@@ -35,3 +35,15 @@
 
 /* 내 위치 */
 .me-dot { width: 16px; height: 16px; border-radius: 50%; background: var(--cold); border: 2.5px solid var(--surface); box-shadow: 0 0 0 6px rgba(79, 127, 191, 0.2), 0 1px 3px rgba(0, 0, 0, 0.3); pointer-events: none; }
+
+/* #40 돌보미 신청: 담기 버튼과 신청서로 가는 줄 */
+.map-page__apply {
+  padding-top: var(--space-3);
+}
+
+.map-page__cart {
+  color: inherit;
+  text-decoration: none;
+  min-height: var(--tap-target);
+  align-items: center;
+}
