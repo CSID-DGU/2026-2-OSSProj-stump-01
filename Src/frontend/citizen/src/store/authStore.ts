@@ -5,6 +5,7 @@
 import { useSyncExternalStore } from 'react'
 import { api, ApiError, type User } from '../lib/api'
 import { getToken, setToken } from '../lib/token'
+import { clearNotifications } from './notificationStore'
 
 export type AuthState =
   | { status: 'checking'; user: null }
@@ -44,6 +45,7 @@ export async function signup(email: string, password: string, nickname: string) 
 
 export function logout() {
   setToken(null)
+  clearNotifications()
   setState({ status: 'guest', user: null })
 }
 

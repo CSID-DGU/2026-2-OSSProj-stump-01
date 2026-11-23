@@ -68,6 +68,25 @@ export type AuthResponse = {
   user: User
 }
 
+// ---- 타입 (openapi.yaml 의 Notification) ----
+export type NotificationType =
+  | 'application_result' // 돌보미 신청 승인·반려
+  | 'monthly_report_result' // 월간 보고서 승인·보완 요청
+  | 'rental_result' // 물품 승인·반려
+  | 'report_resolved' // 이상 신고 조치 완료
+  | 'story_reaction' // 받은 호응
+
+export type Notification = {
+  id: number
+  type: NotificationType
+  title: string
+  body: string
+  treeId: number | null
+  reportId: number | null
+  readAt: string | null // 읽은 시각 (안 읽었으면 null)
+  createdAt: string
+}
+
 export const api = {
   // 지도 범위 안의 나무. 로그인 없이 부른다.
   trees: (bbox: Bbox, limit: number, district?: string) =>
@@ -83,4 +102,10 @@ export const api = {
 
   // 내 정보 (토큰 필요)
   me: () => get<User>('/auth/me'),
+
+  // 내 알림, 최신순 (토큰 필요). unreadCount는 limit과 상관없는 전체 안 읽은 개수
+  notifications: (limit = 50) => get<{ notifications: Notification[]; unreadCount: number }>(`/notifications?limit=${limit}`),
+
+  // 알림 읽음 처리 (이미 읽었으면 처음 읽은 시각을 유지)
+  readNotification: (id: number) => request<Notification>('PATCH', `/notifications/${id}/read`),
 }

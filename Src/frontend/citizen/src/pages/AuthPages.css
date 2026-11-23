@@ -16,6 +16,14 @@
   line-height: var(--tap-target);
 }
 
+/* "나" 탭의 누르는 행 */
+.me-link {
+  color: inherit;
+  text-decoration: none;
+  min-height: var(--tap-target);
+  align-items: center;
+}
+
 .auth-logout {
   width: 100%;
   border: 0;

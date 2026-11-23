@@ -1,12 +1,21 @@
-import { useNavigate } from 'react-router'
+import { useEffect } from 'react'
+import { Link, useNavigate } from 'react-router'
 import PageTitle from '../components/PageTitle'
 import { logout, useAuth } from '../store/authStore'
+import { refreshNotifications, useNotifications } from '../store/notificationStore'
+import './AuthPages.css'
 
-// 하단 탭 "나". 지금은 내 정보와 로그아웃만 있다.
-// 신청 현황(#40), 알림(#41), 물품 신청(#81)이 여기에 들어온다.
+// 하단 탭 "나". 내 정보, 알림(#41), 로그아웃.
+// 신청 현황(#40)과 물품 신청(#81)이 여기에 들어온다.
 export default function MePage() {
   const auth = useAuth()
   const navigate = useNavigate()
+  const { unreadCount } = useNotifications()
+
+  useEffect(() => {
+    refreshNotifications()
+  }, [])
+
   if (auth.status !== 'signed-in') return null
   const { user } = auth
 
@@ -15,6 +24,10 @@ export default function MePage() {
       <PageTitle title={`${user.nickname} 님`} description={user.email} />
 
       <div className="tc-rows">
+        <Link className="tc-row me-link" to="/notifications">
+          <span>알림</span>
+          <span className="tc-row__value">{unreadCount > 0 ? `새 알림 ${unreadCount}개` : '모두 읽음'}</span>
+        </Link>
         <div className="tc-row">
           <span>돌보미 교육</span>
           <span className={user.educationCompleted ? 'tc-row__value' : 'tc-row__value tc-row__value--earth'}>
@@ -24,10 +37,6 @@ export default function MePage() {
         <div className="tc-row">
           <span>돌보미 신청</span>
           <span className="tc-row__value tc-row__value--earth">준비 중 (#40)</span>
-        </div>
-        <div className="tc-row">
-          <span>알림</span>
-          <span className="tc-row__value tc-row__value--earth">준비 중 (#41)</span>
         </div>
         <div className="tc-row">
           <span>물품 신청</span>
