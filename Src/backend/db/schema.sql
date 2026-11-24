@@ -56,7 +56,40 @@ BEGIN
     )
     UPDATE trees SET code = numbered.new_code FROM numbered WHERE trees.id = numbered.id;
     GET DIAGNOSTICS assigned = ROW_COUNT;
+
+    WITH last_no AS (
+        SELECT COALESCE(road_name, dong, district) AS place, MAX(place_no) AS no
+        FROM trees WHERE place_no IS NOT NULL GROUP BY 1
+    ),
+    numbered AS (
+        SELECT t.id,
+               COALESCE(ln.no, 0) + row_number() OVER (
+                   PARTITION BY COALESCE(t.road_name, t.dong, t.district)
+                   ORDER BY t.code NULLS LAST, t.id
+               ) AS new_no
+        FROM trees t
+        LEFT JOIN last_no ln ON ln.place = COALESCE(t.road_name, t.dong, t.district)
+        WHERE t.place_no IS NULL
+    )
+    UPDATE trees SET place_no = numbered.new_no FROM numbered WHERE trees.id = numbered.id;
+
     RETURN assigned;
+END;
+$$;
+
+
+--
+-- Name: reset_tree_place_no(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reset_tree_place_no() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    IF COALESCE(NEW.road_name, NEW.dong, NEW.district) IS DISTINCT FROM COALESCE(OLD.road_name, OLD.dong, OLD.district) THEN
+        NEW.place_no := NULL;
+    END IF;
+    RETURN NEW;
 END;
 $$;
 
@@ -540,6 +573,7 @@ CREATE TABLE public.trees (
     status_updated_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     code text,
+    place_no integer,
     CONSTRAINT trees_health_status_check CHECK ((health_status = ANY (ARRAY['good'::text, 'check'::text, 'urgent'::text])))
 );
 
@@ -549,6 +583,13 @@ CREATE TABLE public.trees (
 --
 
 COMMENT ON COLUMN public.trees.code IS '관리번호. 자치구코드-순번. assign_tree_codes()가 채운다';
+
+
+--
+-- Name: COLUMN trees.place_no; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.trees.place_no IS '나무 이름 번호. 같은 길(노선명·동·자치구 중 있는 것) 안의 순번. assign_tree_codes()가 채운다';
 
 
 --
@@ -1074,10 +1115,24 @@ CREATE INDEX trees_location_idx ON public.trees USING gist (location);
 
 
 --
+-- Name: trees_place_no_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX trees_place_no_key ON public.trees USING btree (COALESCE(road_name, dong, district), place_no);
+
+
+--
 -- Name: volunteer_hours_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX volunteer_hours_user_idx ON public.volunteer_hours USING btree (user_id, recorded_at);
+
+
+--
+-- Name: trees trees_reset_place_no; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trees_reset_place_no BEFORE UPDATE OF road_name, dong, district ON public.trees FOR EACH ROW EXECUTE FUNCTION public.reset_tree_place_no();
 
 
 --
@@ -1314,4 +1369,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20261112190000'),
     ('20261117120000'),
     ('20261120120000'),
-    ('20261120150000');
+    ('20261120150000'),
+    ('20261124140000');
