@@ -93,7 +93,7 @@ describe('POST /records (type=activity)', () => {
       memo: '낙엽이 많았어요',
       monthlyReportId: null,
       report: null,
-      tree: { id: tree },
+      tree: { id: tree, name: '은행나무, 명동길' }, // 번호를 매기기 전이라 번호 없이
     });
     expect(res.body.photos).toHaveLength(2);
     for (const url of res.body.photos) {

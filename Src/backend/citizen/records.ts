@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { authenticate } from '../common/auth.js';
 import { getPool, withTransaction } from '../common/db.js';
 import { HttpError, notFound } from '../common/errors.js';
+import { treeNameSql } from '../common/tree-name.js';
 import { photoUpload, photoUrl, removeUploadedFiles, uploadedFiles } from '../common/uploads.js';
 
 // ── 기준값 (구청 보고서 양식 확인 전 임시값, #59) ──
@@ -105,7 +106,8 @@ export type RecordView = {
   location: { lat: number; lng: number } | null; // 신고한 위치
   monthlyReportId: number | null; // 월간 보고서에 넣었으면 그 보고서 id
   report: { category: ReportCategory; urgency: 'low' | 'high'; status: ReportStatus } | null;
-  tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null };
+  // name: "은행나무, 소파로 3번" (common/tree-name.ts)
+  tree: { id: number; code: string | null; name: string; species: string; district: string; dong: string | null; roadName: string | null };
 };
 
 // 생성 응답과 내 기록 목록이 같은 모양을 쓰도록 SELECT를 하나로 둔다. $1 = 기록한 시민
@@ -114,7 +116,7 @@ const SELECT_MY_RECORD = `
          ST_Y(r.location::geometry) AS lat, ST_X(r.location::geometry) AS lng,
          (SELECT coalesce(json_agg(p.url ORDER BY p.position), '[]'::json) FROM record_photos p WHERE p.record_id = r.id) AS photos,
          rp.category, rp.urgency, rp.status AS report_status,
-         t.id AS tree_id, t.code, t.species, t.district, t.dong, t.road_name
+         t.id AS tree_id, t.code, ${treeNameSql('t')} AS tree_name, t.species, t.district, t.dong, t.road_name
   FROM records r
   JOIN trees t ON t.id = r.tree_id
   LEFT JOIN reports rp ON rp.record_id = r.id
@@ -137,6 +139,7 @@ type RecordRow = {
   report_status: ReportStatus | null;
   tree_id: number;
   code: string | null;
+  tree_name: string;
   species: string;
   district: string;
   dong: string | null;
@@ -156,7 +159,7 @@ function toView(r: RecordRow): RecordView {
     location: r.lat === null || r.lng === null ? null : { lat: r.lat, lng: r.lng },
     monthlyReportId: r.monthly_report_id,
     report: r.category && r.urgency && r.report_status ? { category: r.category, urgency: r.urgency, status: r.report_status } : null,
-    tree: { id: r.tree_id, code: r.code, species: r.species, district: r.district, dong: r.dong, roadName: r.road_name },
+    tree: { id: r.tree_id, code: r.code, name: r.tree_name, species: r.species, district: r.district, dong: r.dong, roadName: r.road_name },
   };
 }
 

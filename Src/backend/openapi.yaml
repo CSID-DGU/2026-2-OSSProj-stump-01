@@ -1075,6 +1075,7 @@ paths:
                         properties:
                           id: { type: integer }
                           code: { type: [string, 'null'] }
+                          name: { type: string, example: '은행나무, 소파로 3번', description: 나무 이름 (Tree.name과 같다) }
                           species: { type: string }
                           district: { type: string }
                           roadName: { type: [string, 'null'] }
@@ -1205,6 +1206,12 @@ components:
       properties:
         id: { type: integer }
         code: { type: [string, 'null'], example: 11140-00123, description: 관리번호 "자치구코드-구 안 순번". 서울시 트리맵 번호가 공개되지 않아 자체 부여. 화면·QR 명판에 쓴다 }
+        name:
+          type: string
+          example: '은행나무, 소파로 3번'
+          description: >-
+            화면에 보여 줄 나무 이름 "수종, 길 N번". 길은 노선명 → 동 → 자치구 중 있는 것, N은 그 길(서울 전체) 안에서
+            관리번호 순으로 센 번호라 서울 전체에서 겹치지 않는다. 적재 직후 번호를 매기기 전이면 번호 없이 "수종, 길"
         species: { type: string, example: 은행나무 }
         location:
           type: object
@@ -1229,6 +1236,20 @@ components:
               oneOf:
                 - { $ref: '#/components/schemas/SpeciesCard' }
                 - { type: 'null' }
+            neighbors:
+              type: array
+              maxItems: 2
+              description: >-
+                양옆 나무(내 나무 찾아가기). 같은 자치구·노선에서 50m 안에 있는 나무 중 가장 가까운 나무와,
+                그 반대쪽(방향이 90°보다 크게 벌어진 쪽)에서 가장 가까운 나무. 도로 끝이면 1개, 없으면 빈 배열
+              items: { $ref: '#/components/schemas/TreeNeighbor' }
+    TreeNeighbor:
+      type: object
+      properties:
+        id: { type: integer }
+        species: { type: string, example: 느티나무 }
+        direction: { type: string, enum: [북, 북동, 동, 남동, 남, 남서, 서, 북서], description: 내 나무에서 본 방향 }
+        distanceM: { type: integer, example: 18, description: 내 나무까지 거리(m, 반올림) }
     SpeciesCard:
       type: object
       properties:
@@ -1326,6 +1347,7 @@ components:
           properties:
             id: { type: integer }
             code: { type: [string, 'null'], example: 11140-00123, description: 관리번호 }
+            name: { type: string, example: '은행나무, 소파로 3번', description: 나무 이름 (Tree.name과 같다) }
             species: { type: string, example: 은행나무 }
             district: { type: string, description: 위치한 자치구 }
             dong: { type: [string, 'null'] }
@@ -1359,6 +1381,7 @@ components:
           properties:
             id: { type: integer }
             code: { type: [string, 'null'] }
+            name: { type: string, example: '은행나무, 소파로 3번', description: 나무 이름 (Tree.name과 같다) }
             species: { type: string }
             district: { type: string }
             dong: { type: [string, 'null'] }

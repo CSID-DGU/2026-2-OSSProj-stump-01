@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { authenticate } from '../common/auth.js';
 import { getPool, withTransaction, type Db } from '../common/db.js';
 import { badRequest, HttpError } from '../common/errors.js';
+import { treeNameSql } from '../common/tree-name.js';
 import { buildDraft, type DraftSource } from './monthly-report-draft.js';
 
 // ── 기준값 ──
@@ -91,15 +92,14 @@ async function unreportedRecords(db: Db, userId: number, dates: string[], lock =
     id: number;
     activity_date: string;
     tree_id: number;
-    species: string;
-    place: string;
+    tree_name: string;
     agency: string;
     activity_kind: string | null;
     duration_min: number;
     memo: string | null;
     photo_count: number;
   }>(
-    `SELECT r.id, r.activity_date, r.tree_id, t.species, COALESCE(t.road_name, t.dong, t.district) AS place, t.agency,
+    `SELECT r.id, r.activity_date, r.tree_id, ${treeNameSql('t')} AS tree_name, t.agency,
             r.activity_kind, r.duration_min, r.memo,
             (SELECT count(*) FROM record_photos p WHERE p.record_id = r.id) AS photo_count
      FROM records r JOIN trees t ON t.id = r.tree_id
@@ -111,7 +111,7 @@ async function unreportedRecords(db: Db, userId: number, dates: string[], lock =
     recordId: r.id,
     date: r.activity_date,
     treeId: r.tree_id,
-    treeName: `${r.species}, ${r.place}`,
+    treeName: r.tree_name, // 나무 상세와 같은 이름 "은행나무, 소파로 3번"
     agency: r.agency,
     activityKinds: r.activity_kind ? r.activity_kind.split(KIND_SEPARATOR) : [],
     minutes: r.duration_min,

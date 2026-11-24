@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { authenticate } from '../common/auth.js';
 import { getPool, withTransaction } from '../common/db.js';
 import { badRequest, HttpError, notFound } from '../common/errors.js';
+import { treeNameSql } from '../common/tree-name.js';
 
 // ── 기준값 ──
 const ENTRY_MAX_LENGTH = 1000; // 글 하나 (임시값)
@@ -125,12 +126,15 @@ export const storyEntriesRouter = Router();
 // 로그인 없이: 나이테 표식에서 글 하나로 이동할 때. 비공개 글은 없는 글처럼 404
 storyEntriesRouter.get('/:id', async (req, res) => {
   const { id } = idParam.parse(req.params);
-  const { rows } = await getPool().query<EntryRow & { species: string; code: string | null; road_name: string | null; district: string }>(
-    `SELECT x.*, t.species, t.code, t.road_name, t.district FROM (${SELECT_ENTRY} WHERE e.id = $1 AND e.is_public) x
+  const { rows } = await getPool().query<EntryRow & { species: string; code: string | null; tree_name: string; road_name: string | null; district: string }>(
+    `SELECT x.*, t.species, t.code, ${treeNameSql('t')} AS tree_name, t.road_name, t.district FROM (${SELECT_ENTRY} WHERE e.id = $1 AND e.is_public) x
      JOIN trees t ON t.id = x.tree_id`,
     [id],
   );
   const r = rows[0];
   if (!r) throw notFound('이야기 글을 찾을 수 없다.');
-  res.json({ ...toView(r), tree: { id: r.tree_id, code: r.code, species: r.species, district: r.district, roadName: r.road_name } });
+  res.json({
+    ...toView(r),
+    tree: { id: r.tree_id, code: r.code, name: r.tree_name, species: r.species, district: r.district, roadName: r.road_name },
+  });
 });
