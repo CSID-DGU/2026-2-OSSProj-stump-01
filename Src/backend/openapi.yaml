@@ -1019,6 +1019,26 @@ paths:
                   entries: { type: array, items: { $ref: '#/components/schemas/StoryEntry' } }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /trees/{id}/rings:
+    get:
+      tags: [시민]
+      summary: 디지털 나이테 월별 집계 (로그인 없음)
+      description: >-
+        그해 1월~12월 12조각. 두께 = 받은 비(rainMm)와 돌봄(careMinutes·careCount), 색 = 더위(tempMaxAvg·heatDays),
+        점 = 활동한 날, 별 = 공개 이야기 글, 표식 = 신고·조치·받은 호응(Src/용어.md).
+        두께·색 계산 방식은 보고서 양식 확정 뒤 정하므로 서버는 원래 값만 준다(시민 웹 lib/rings.ts가 계산).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 2000, maximum: 2100 }, description: 없으면 올해(한국 시간) }
+      responses:
+        '200':
+          description: 나이테
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreeRings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /trees/{id}/story/entries:
     post:
       tags: [시민]
@@ -1440,6 +1460,33 @@ components:
         createdAt: { type: string, format: date-time }
         handledAt: { type: [string, 'null'], format: date-time, description: 구청이 승인·반려한 시각 }
         receivedAt: { type: [string, 'null'], format: date-time }
+    TreeRings:
+      type: object
+      properties:
+        treeId: { type: integer }
+        year: { type: integer, example: 2026 }
+        months: { type: array, minItems: 12, maxItems: 12, items: { $ref: '#/components/schemas/RingMonth' }, description: 1월~12월 }
+    RingMonth:
+      type: object
+      properties:
+        month: { type: integer, minimum: 1, maximum: 12 }
+        rainMm: { type: [number, 'null'], description: 그 달 강수량 합계(mm, 서울 ASOS). 기상 자료가 없는 달은 null }
+        tempMaxAvg: { type: [number, 'null'], description: 그 달 평균 최고기온(℃, 소수 첫째 자리). 자료가 없으면 null }
+        heatDays: { type: integer, description: 폭염(일 최고기온 33℃ 이상)인 날 수 }
+        careMinutes: { type: integer, description: 구청이 승인한 보고서에 든 활동 시간 합계(분). 그 나무의 모든 돌보미 것 }
+        careCount: { type: integer, description: 위 활동 기록 수 }
+        activityDays: { type: array, items: { type: integer }, description: 활동 기록이 있는 날(승인 여부 상관없음). 오름차순 }
+        stories:
+          type: array
+          description: 공개 이야기 글(별). 날짜는 한국 시간. 누르면 /story-entries/{id}
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              day: { type: integer }
+        reported: { type: integer, description: 그 달 접수된 신고 수 }
+        resolved: { type: integer, description: 그 달 조치 완료된 신고 수 }
+        reactions: { type: integer, description: 그 달 받은 호응 수. QR 호응(#65) 전까지 0 }
     StoryEntry:
       type: object
       description: 공동 이야기에 덧붙인 글 하나
