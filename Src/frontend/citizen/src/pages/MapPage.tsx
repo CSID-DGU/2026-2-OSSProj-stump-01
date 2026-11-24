@@ -17,8 +17,6 @@ import './MapPage.css'
 
 const NO_TREES: ReadonlySet<number> = new Set()
 
-// 지도에 보이는 나무 이름 (노선 → 동 → 자치구 중 있는 것)
-const placeOf = (t: Tree) => t.roadName ?? t.dong ?? t.district
 
 // 처음 보여 주는 범위: 중구 명동 일대 (가로·세로 약 700m). 이 크기면 나무가 2000그루를 넘지 않는다.
 const DEFAULT_BBOX: Bbox = [126.98, 37.56, 126.988, 37.567]
@@ -186,7 +184,7 @@ export default function MapPage() {
         <div className="tc-rows">
           <Link className="tc-tree tc-row" to={`/trees/${selected.id}`}>
             <span className="tc-tree__name">
-              {selected.species}, {placeOf(selected)}
+              {selected.name}
             </span>
             <span className="tc-tree__meta">{selected.code ?? `${selected.district} ${selected.dong ?? ''}`} · 자세히</span>
           </Link>
@@ -207,7 +205,7 @@ export default function MapPage() {
                 className="tc-choice"
                 disabled={cart.length >= MAX_TREES}
                 onClick={() =>
-                  addToCart({ id: selected.id, species: selected.species, place: placeOf(selected), district: selected.district, code: selected.code })
+                  addToCart({ id: selected.id, species: selected.species, name: selected.name, district: selected.district, code: selected.code })
                 }
               >
                 {cart.length >= MAX_TREES ? `한 번에 ${MAX_TREES}그루까지 신청할 수 있어요` : '돌보미 신청할 나무로 담기'}

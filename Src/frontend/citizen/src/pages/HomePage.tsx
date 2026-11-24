@@ -67,7 +67,7 @@ export default function HomePage() {
       <WeatherToday
         key={firstTree?.id ?? 0}
         treeId={firstTree?.id}
-        placeLabel={firstTree ? `${firstTree.species}, ${firstTree.place} 기준` : '서울 기준'}
+        placeLabel={firstTree ? `${firstTree.name} 기준` : '서울 기준'}
       />
 
       {error && (
@@ -131,7 +131,7 @@ export default function HomePage() {
                 return (
                   <Link key={t.id} className="tc-tree tc-row" to={`/trees/${t.id}`}>
                     <span className="tc-tree__name">
-                      {t.species}, {t.place}
+                      {t.name}
                     </span>
                     <span className={quiet && gap !== 0 ? 'tc-tree__meta tc-tree__meta--danger' : 'tc-tree__meta'}>{meta}</span>
                   </Link>

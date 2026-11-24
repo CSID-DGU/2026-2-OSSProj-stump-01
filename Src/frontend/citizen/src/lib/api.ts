@@ -52,6 +52,7 @@ const post = <T>(path: string, body: unknown) => request<T>('POST', path, body)
 export type Tree = {
   id: number
   code: string | null // 관리번호 "자치구코드-순번"
+  name: string // 화면에 보여 줄 이름 "은행나무, 소파로 3번". 서울 전체에서 겹치지 않는다 (서버가 만든다)
   species: string
   location: { lng: number; lat: number }
   district: string
@@ -83,6 +84,15 @@ export type TreeDetail = Tree & {
   sameRoadCount: number // 같은 자치구·노선의 나무 수
   sameDongCount: number // 같은 자치구·동의 나무 수
   speciesCard: SpeciesCard | null // 상위 10종 밖이면 null
+  neighbors: TreeNeighbor[] // 양옆 나무 (같은 노선, 50m 안). 가까운 나무 → 반대쪽 나무 순, 0~2개
+}
+
+// 양옆 나무 (openapi.yaml 의 TreeNeighbor). 거리에서 내 나무를 확인하는 표시
+export type TreeNeighbor = {
+  id: number
+  species: string
+  direction: '북' | '북동' | '동' | '남동' | '남' | '남서' | '서' | '북서' // 내 나무에서 본 방향
+  distanceM: number // 내 나무까지 거리(m)
 }
 
 export type StoryEntry = {
@@ -154,7 +164,7 @@ export type MyApplication = {
   rejectReason: string | null // 반려 사유
   createdAt: string
   reviewedAt: string | null
-  tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null }
+  tree: { id: number; code: string | null; name: string; species: string; district: string; dong: string | null; roadName: string | null }
 }
 
 export type NewApplication = {
@@ -221,7 +231,7 @@ export type ApiRecord = {
   location: { lat: number; lng: number } | null
   monthlyReportId: number | null
   report: { category: string; urgency: 'low' | 'high'; status: 'pending' | 'inspecting' | 'resolved' } | null
-  tree: { id: number; code: string | null; species: string; district: string; dong: string | null; roadName: string | null }
+  tree: { id: number; code: string | null; name: string; species: string; district: string; dong: string | null; roadName: string | null }
 }
 
 // ---- 타입: 나이테 (#44 화면이 쓰는 모양. GET /trees/{id}/rings?year= 는 #12에서 이 모양으로 만들기로 제안) ----
@@ -247,7 +257,7 @@ export type TreeRings = {
 
 // 이야기 한 편 (GET /story-entries/{id})
 export type StoryEntryDetail = StoryEntry & {
-  tree: { id: number; code: string | null; species: string; district: string; roadName: string | null }
+  tree: { id: number; code: string | null; name: string; species: string; district: string; roadName: string | null }
 }
 
 // 서버가 준 사진 경로("/uploads/…")를 화면에서 쓸 주소로. 개발 서버는 /api 를 백엔드로 넘긴다

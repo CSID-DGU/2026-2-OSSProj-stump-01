@@ -63,7 +63,7 @@ export default function MyApplicationsPage() {
                 <li key={a.id} className="tc-row apply-item">
                   <div className="apply-item__main">
                     <span className="tc-tree__name">
-                      {a.tree.species}, {a.tree.roadName ?? a.tree.dong ?? a.tree.district}
+                      {a.tree.name}
                     </span>
                     <span className="caption apply-muted">
                       {a.tree.code ?? a.tree.district} · {formatLongDate(a.periodStart)} ~ {formatLongDate(a.periodEnd)}

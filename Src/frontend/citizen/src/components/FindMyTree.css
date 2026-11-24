@@ -1,0 +1,52 @@
+/* 내 나무 찾아가기. 색·간격은 styles/tokens.css 변수만 쓴다. */
+
+.find-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+/* 나무 상세 안의 작은 지도는 지도 화면보다 낮게 */
+.find-tree .map {
+  aspect-ratio: 4 / 3;
+  margin-top: 0;
+}
+
+.find-tree__status p {
+  margin: 0;
+}
+
+.find-tree__error {
+  margin: var(--space-1) 0 0;
+  color: var(--danger);
+}
+
+.find-tree__label {
+  margin: var(--space-2) 0 0;
+  font-weight: 400;
+}
+
+.find-tree__neighbors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.find-tree__neighbor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--subtle);
+  border-radius: 8px;
+}
+
+.find-tree__directions {
+  text-align: center;
+  text-decoration: none;
+}

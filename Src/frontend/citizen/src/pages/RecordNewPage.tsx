@@ -60,14 +60,14 @@ export default function RecordNewPage() {
         if (!alive) return
         const mine: TreeOption[] = myActiveTrees(apps.applications, recs.records, date).map((t) => ({
           id: t.id,
-          name: `${t.species}, ${t.place}`,
+          name: t.name,
           agency: apps.applications.find((a) => a.tree.id === t.id)?.tree.district ?? '',
           mine: true,
         }))
         // 신고하려고 들어온 나무가 내 나무가 아니면 목록 맨 앞에 더한다
         const list =
           urlTree && !mine.some((t) => t.id === urlTree.id)
-            ? [{ id: urlTree.id, name: `${urlTree.species}, ${urlTree.roadName ?? urlTree.dong ?? urlTree.district}`, agency: urlTree.agency, mine: false }, ...mine]
+            ? [{ id: urlTree.id, name: urlTree.name, agency: urlTree.agency, mine: false }, ...mine]
             : mine
         setTrees(list)
         setMonthDays(new Set(recs.records.filter((r) => r.type === 'activity' && r.activityDate).map((r) => r.activityDate as string)))

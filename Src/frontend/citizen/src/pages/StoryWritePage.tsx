@@ -46,7 +46,6 @@ export default function StoryWritePage() {
     }
   }, [treeId])
 
-  const place = tree ? tree.roadName ?? tree.dong ?? tree.district : ''
   const isPublic = visibility[0] === 'public'
 
   async function submit(e: FormEvent) {
@@ -70,7 +69,7 @@ export default function StoryWritePage() {
       <TopBar title="이야기 덧붙이기" kind="close" />
       <form className="page story-form" onSubmit={submit} noValidate>
         <div className="page-title">
-          <h1 className="display">{tree ? `${tree.species}, ${place}` : '나무 이야기'}</h1>
+          <h1 className="display">{tree ? tree.name : '나무 이야기'}</h1>
           <p className="body">여러 돌보미가 함께 쓰는 이 나무의 이야기에 한 편을 덧붙여요.</p>
         </div>
 
