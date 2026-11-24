@@ -63,6 +63,7 @@ describe('GET /monthly-reports/draft', () => {
     await addActivity({ date: '2026-11-05', treeId: treeA, minutes: 20 });
     await addActivity({ date: '2026-11-03', treeId: treeA, minutes: 30, kinds: '쓰레기 줍기, 보호틀 정리' });
     await addActivity({ date: '2026-11-04', minutes: 99 }); // 고르지 않은 날
+    await getPool().query('SELECT assign_tree_codes()'); // 나무 이름의 번호를 매긴다
 
     const res = await request(api).get('/monthly-reports/draft?dates=2026-11-03,2026-11-05').set(auth(me.token));
 
@@ -72,7 +73,7 @@ describe('GET /monthly-reports/draft', () => {
     expect(res.body.agencies).toEqual(['중구']);
     expect(res.body.fields.map((f: { label: string }) => f.label)).toEqual(['날짜', '나무', '한 일', '활동 시간', '사진', '메모']);
     expect(res.body.rows[0].values).toMatchObject({ date: '2026-11-03', activities: '쓰레기 줍기, 보호틀 정리', minutes: 30 });
-    expect(res.body.rows[0].values.treeName).toContain('은행나무');
+    expect(res.body.rows[0].values.treeName).toMatch(/^은행나무, 명동길 \d+번$/); // 나무 상세와 같은 이름
   });
 
   it('dates 가 없거나 날짜 형식이 틀리면 400', async () => {

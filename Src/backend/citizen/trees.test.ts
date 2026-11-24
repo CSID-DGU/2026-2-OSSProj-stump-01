@@ -131,6 +131,66 @@ describe('GET /trees', () => {
   });
 });
 
+describe('나무 이름 (같은 길·같은 수종 나무 구분)', () => {
+  const assign = () => getPool().query('SELECT assign_tree_codes()');
+  const nameOf = async (id: number) => (await request(api).get(`/trees/${id}`)).body.name as string;
+
+  it('이름은 "수종, 길 N번". N 은 같은 길의 나무를 관리번호 순(서쪽부터)으로 센 번호다', async () => {
+    const west = await createTree({ lng: 126.97, roadName: '소파로' });
+    const east = await createTree({ lng: 126.971, roadName: '소파로', species: '느티나무' });
+    const otherRoad = await createTree({ lng: 126.9705, roadName: '을지로' });
+    await assign();
+
+    expect(await nameOf(west)).toBe('은행나무, 소파로 1번');
+    expect(await nameOf(east)).toBe('느티나무, 소파로 2번');
+    expect(await nameOf(otherRoad)).toBe('은행나무, 을지로 1번');
+    // 목록에도 같은 이름
+    const list = await request(api).get(`/trees?bbox=${BBOX}`);
+    expect(list.body.trees.map((t: { name: string }) => t.name).sort()).toEqual(['느티나무, 소파로 2번', '은행나무, 소파로 1번', '은행나무, 을지로 1번']);
+  });
+
+  it('같은 이름의 길이 여러 구에 있어도 번호를 이어 매겨 서울 전체에서 이름이 겹치지 않는다', async () => {
+    const jung = await createTree({ agency: '중구', roadName: '세종대로' });
+    const jongno = await createTree({ agency: '종로구', roadName: '세종대로' });
+    await assign();
+
+    // 관리번호 순(종로구 11110 → 중구 11140)으로 센다
+    expect(await nameOf(jongno)).toBe('은행나무, 세종대로 1번');
+    expect(await nameOf(jung)).toBe('은행나무, 세종대로 2번');
+  });
+
+  it('번호를 매기기 전(적재 직후)에는 번호 없이 "수종, 길", 길 이름이 없으면 동으로 부른다', async () => {
+    const tree = await createTree({ roadName: '소파로' });
+    expect(await nameOf(tree)).toBe('은행나무, 소파로');
+
+    await getPool().query('UPDATE trees SET road_name = NULL WHERE id = $1', [tree]);
+    await assign();
+    expect(await nameOf(tree)).toBe('은행나무, 명동 1번');
+  });
+
+  it('다시 돌려도 기존 번호는 그대로, 새 나무는 그 길의 마지막 번호 다음을 받는다', async () => {
+    const first = await createTree({ lng: 126.972, roadName: '소파로' });
+    await assign();
+    const added = await createTree({ lng: 126.97, roadName: '소파로' }); // 더 서쪽이지만 나중에 들어왔다
+    await assign();
+
+    expect(await nameOf(first)).toBe('은행나무, 소파로 1번');
+    expect(await nameOf(added)).toBe('은행나무, 소파로 2번');
+  });
+
+  it('원본 갱신으로 길 이름이 바뀐 나무는 번호를 비웠다가 새 길의 다음 번호를 받는다', async () => {
+    const moved = await createTree({ roadName: '소파로' });
+    await createTree({ roadName: '을지로' });
+    await assign(); // 둘 다 각자 길의 1번
+
+    // 적재 스크립트처럼 길 이름을 고친다. 을지로 1번과 겹치면 안 된다
+    await getPool().query(`UPDATE trees SET road_name = '을지로' WHERE id = $1`, [moved]);
+    expect(await nameOf(moved)).toBe('은행나무, 을지로');
+    await assign();
+    expect(await nameOf(moved)).toBe('은행나무, 을지로 2번');
+  });
+});
+
 describe('GET /trees/:id', () => {
   it('상세에는 관리청·주소·같은 노선·동의 나무 수가 있다', async () => {
     const tree = await createTree();
@@ -162,5 +222,37 @@ describe('GET /trees/:id', () => {
   it('없는 나무는 404, 숫자가 아닌 id 는 400', async () => {
     expect((await request(api).get('/trees/999999')).status).toBe(404);
     expect((await request(api).get('/trees/abc')).status).toBe(400);
+  });
+});
+
+describe('GET /trees/:id 양옆 나무 (내 나무 찾아가기)', () => {
+  // 위도 37.565 에서 경도 1° ≈ 88.3km. 동서로 미터 단위 간격을 두고 나무를 놓는다
+  const LNG = 126.98;
+  const LAT = 37.565;
+  const east = (meters: number) => LNG + meters / 88_300;
+
+  it('같은 노선에서 가장 가까운 나무와 그 반대쪽 나무의 수종·방향·거리를 준다', async () => {
+    const tree = await createTree({ lng: LNG, lat: LAT });
+    const eastNear = await createTree({ lng: east(4), lat: LAT });
+    await createTree({ lng: east(8), lat: LAT }); // 같은 쪽(동쪽)이라 고르지 않는다
+    const westNear = await createTree({ lng: east(-18), lat: LAT, species: '느티나무' });
+    await createTree({ lng: east(2), lat: LAT, roadName: '다른길' }); // 더 가깝지만 다른 노선
+
+    const res = await request(api).get(`/trees/${tree}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.neighbors).toEqual([
+      { id: eastNear, species: '은행나무', direction: '동', distanceM: 4 },
+      { id: westNear, species: '느티나무', direction: '서', distanceM: 18 },
+    ]);
+  });
+
+  it('반경(50m) 안에 같은 노선 나무가 없으면 빈 목록', async () => {
+    const tree = await createTree({ lng: LNG, lat: LAT });
+    await createTree({ lng: east(80), lat: LAT });
+
+    const res = await request(api).get(`/trees/${tree}`);
+
+    expect(res.body.neighbors).toEqual([]);
   });
 });

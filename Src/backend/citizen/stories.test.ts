@@ -135,11 +135,13 @@ describe('GET /story-entries/:id', () => {
   it('공개 글 하나를 나무 정보와 함께 로그인 없이 준다', async () => {
     await approveCaregiver(me.id, tree);
     const entry = await write({ body: '나이테에서 온 글' });
+    await getPool().query('SELECT assign_tree_codes()'); // 나무 이름의 번호를 매긴다
 
     const res = await request(api).get(`/story-entries/${entry.body.id}`);
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ id: entry.body.id, body: '나이테에서 온 글', tree: { id: tree, species: '은행나무' } });
+    expect(res.body.tree.name).toMatch(/^은행나무, 명동길 \d+번$/);
   });
 
   it('비공개 글과 없는 글은 404', async () => {

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { authenticate } from '../common/auth.js';
 import { getPool } from '../common/db.js';
 import { HttpError } from '../common/errors.js';
+import { treeNameSql } from '../common/tree-name.js';
 
 // ── 기준값 ──
 const MAX_TREES_PER_APPLICATION = 10; // 한 번에 신청할 수 있는 나무 수 (임시값)
@@ -100,6 +101,7 @@ export type MyApplicationView = {
   tree: {
     id: number;
     code: string | null;
+    name: string; // "은행나무, 소파로 3번" (common/tree-name.ts)
     species: string;
     district: string;
     dong: string | null;
@@ -115,7 +117,7 @@ const SELECT_MY_APPLICATION = `
          a.applicant_name, a.contact_person, a.headcount, a.postal_code, a.address AS applicant_address, a.phone,
          a.participation_type, a.motivation, a.activity_plan, a.organization_intro, a.agreed_at,
          a.reject_reason, a.created_at, a.reviewed_at,
-         t.id AS tree_id, t.code, t.species, t.district, t.dong, t.road_name, t.address
+         t.id AS tree_id, t.code, ${treeNameSql('t')} AS tree_name, t.species, t.district, t.dong, t.road_name, t.address
   FROM caregiver_applications a
   JOIN trees t ON t.id = a.tree_id
   WHERE a.user_id = $1`;
@@ -141,6 +143,7 @@ type MyApplicationRow = {
   reviewed_at: Date | null;
   tree_id: number;
   code: string | null;
+  tree_name: string;
   species: string;
   district: string;
   dong: string | null;
@@ -171,6 +174,7 @@ function toView(r: MyApplicationRow): MyApplicationView {
     tree: {
       id: r.tree_id,
       code: r.code,
+      name: r.tree_name,
       species: r.species,
       district: r.district,
       dong: r.dong,

@@ -51,6 +51,7 @@ erDiagram
         bigint id PK
         varchar source_key UK "관리청|경도|위도, 원본에 관리번호가 없음"
         varchar code UK "관리번호 자치구코드-순번, assign_tree_codes()가 채움"
+        int place_no "나무 이름 번호: 같은 길 안 순번, assign_tree_codes()가 채움"
         varchar species "수종"
         geography location "Point, WGS84"
         varchar agency "관리청: 신청·보고서·신고 배정 기준"
@@ -301,6 +302,14 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - 부여: `SELECT assign_tree_codes();` — `code`가 비어 있는 나무에만 매기고, 구마다 쓰인 가장 큰 순번 다음부터 이어 붙인다. 기존 번호는 바뀌지 않는다. 순서는 노선명 → 경도 → 위도.
 - 적재 스크립트가 새 나무를 넣은 뒤 이 함수를 한 번 부른다. 매년 재적재는 `source_key`로 같은 나무를 찾으므로 번호가 유지된다.
 - 화면·QR 명판에는 `id` 대신 이 번호를 보여 준다.
+
+## 나무 이름 번호 `trees.place_no` (마이그레이션 20261124140000_tree_place_no)
+
+같은 길에 같은 수종이 수십~수백 그루라 "은행나무, 소파로"만으로는 나무를 구분할 수 없다(적용 전 서울에서 이름이 겹치는 묶음 4,602개). 그래서 이름을 `은행나무, 소파로 3번`처럼 부른다(`common/tree-name.ts`의 `treeNameSql()`).
+
+- 길: `COALESCE(road_name, dong, district)`. 같은 이름의 길이 여러 구에 걸쳐도 서울 전체에서 번호를 이어 매기므로 서울 전체에서 이름이 겹치지 않는다(유니크 인덱스 `trees_place_no_key`).
+- 부여: `assign_tree_codes()`가 관리번호를 매긴 뒤 `place_no`가 비어 있는 나무에 매긴다. 길마다 쓰인 가장 큰 번호 다음부터 관리번호 순으로 이어 붙인다. 기존 번호는 바뀌지 않는다. 적재 스크립트는 따로 고칠 것이 없다.
+- 원본 갱신으로 길(노선명·동·자치구)이 바뀐 나무는 트리거 `trees_reset_place_no`가 번호를 비우고, 다음 `assign_tree_codes()`에서 새 길의 다음 번호를 받는다.
 
 ## 돌보미 신청서 양식 항목 (마이그레이션 20261117120000_application_form_fields, #6)
 

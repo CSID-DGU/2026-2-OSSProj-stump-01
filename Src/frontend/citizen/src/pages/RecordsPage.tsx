@@ -72,13 +72,12 @@ export default function RecordsPage() {
           ) : (
             <ul className="tc-rows hours-list">
               {records.map((r) => {
-                const place = r.tree.roadName ?? r.tree.dong ?? r.tree.district
                 const day = r.activityDate ?? toDateKey(new Date(r.recordedAt))
                 return (
                   <li key={r.id} className="tc-row hours-item">
                     <div className="hours-item__main">
                       <span className="caption hours-help">
-                        {formatShortDate(day)} · {r.tree.species}, {place}
+                        {formatShortDate(day)} · {r.tree.name}
                       </span>
                       <span className="body">
                         {r.type === 'activity'

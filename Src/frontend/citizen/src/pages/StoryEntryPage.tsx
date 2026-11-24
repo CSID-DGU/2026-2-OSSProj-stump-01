@@ -28,7 +28,6 @@ export default function StoryEntryPage() {
     }
   }, [entryId])
 
-  const place = entry ? entry.tree.roadName ?? entry.tree.district : ''
 
   return (
     <div className="page tree-detail">
@@ -44,7 +43,7 @@ export default function StoryEntryPage() {
               {formatLongDate(toDateKey(new Date(entry.createdAt)))}, {entry.author.displayName}
             </p>
             <h1 className="display">
-              {entry.tree.species}, {place}
+              {entry.tree.name}
             </h1>
           </div>
           <p className="tree-story__body">{entry.body}</p>

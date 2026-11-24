@@ -6,7 +6,7 @@ import { MAX_TREES } from '../content/applicationForm'
 export type CartTree = {
   id: number
   species: string
-  place: string // 노선·동·자치구 중 있는 것
+  name: string // 나무 이름 "은행나무, 소파로 3번" (서버의 Tree.name)
   district: string
   code: string | null
 }
@@ -16,7 +16,8 @@ const KEY = 'treecare.applyCart'
 function load(): CartTree[] {
   try {
     const raw = sessionStorage.getItem(KEY)
-    return raw ? (JSON.parse(raw) as CartTree[]) : []
+    // 이름(name)이 없는 옛 모양의 담은 나무는 버린다 (지도에서 다시 담으면 된다)
+    return raw ? (JSON.parse(raw) as CartTree[]).filter((t) => typeof t.name === 'string') : []
   } catch {
     return []
   }

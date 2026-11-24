@@ -128,7 +128,7 @@ export default function TreeMap({ bbox, trees, selectedId, onSelect, onPan, onZo
                 r={on ? 1.6 : 1}
                 className={`tree${kindOf ? ` tree--${kindOf(t)}` : ""}${on ? " on" : ""}`}
               >
-                <title>{t.species} · {t.roadName ?? t.dong ?? t.district}</title>
+                <title>{t.name}</title>
               </circle>
             );
           })}

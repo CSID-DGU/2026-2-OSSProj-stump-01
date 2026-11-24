@@ -225,6 +225,7 @@ describe('GET /applications/me', () => {
       createdAt: '2026-11-02T09:00:00+09:00',
     });
     await createApplication({ userId: other.id, treeId: treeA });
+    await getPool().query('SELECT assign_tree_codes()'); // 나무 이름의 번호를 매긴다
 
     const res = await request(api).get('/applications/me').set(auth(me.token));
 
@@ -235,6 +236,7 @@ describe('GET /applications/me', () => {
       rejectReason: '테스트 반려',
       tree: { id: treeB, species: '은행나무', district: '중구', roadName: '명동길' },
     });
+    expect(res.body.applications[0].tree.name).toMatch(/^은행나무, 명동길 \d+번$/);
     expect(res.body.applications[1]).toMatchObject({ status: 'pending', rejectReason: null, reviewedAt: null });
   });
 

@@ -6,6 +6,18 @@ import { useEffect, useRef, useState } from "react";
 import type { Bbox, Tree } from "../lib/api";
 import { loadKakao, type KakaoMap, type KakaoOverlay, type KakaoSdk } from "../lib/kakao";
 
+// 내 위치 점을 (다시) 찍는다. 이동(flyTo)과 점만 찍기(me)가 같이 쓴다
+function drawMeDot(sdk: KakaoSdk, map: KakaoMap, overlay: { current: KakaoOverlay | null }, at: { lat: number; lng: number }) {
+  const position = new sdk.maps.LatLng(at.lat, at.lng);
+  overlay.current?.setMap(null);
+  const node = document.createElement("div");
+  node.className = "me-dot";
+  node.setAttribute("aria-label", "내 위치");
+  overlay.current = new sdk.maps.CustomOverlay({ position, content: node, xAnchor: 0.5, yAnchor: 0.5, zIndex: 3 });
+  overlay.current.setMap(map);
+  return position;
+}
+
 interface Props {
   appKey: string;
   center: { lat: number; lng: number };
@@ -16,9 +28,10 @@ interface Props {
   onBoundsChange: (bbox: Bbox) => void;
   flyTo?: { lat: number; lng: number } | null; // 바뀌면 그 위치로 이동
   kindOf?: (tree: Tree) => string; // 나무 점에 붙일 종류 이름 (CSS 클래스 tree-dot--종류). 없으면 모두 같은 점
+  me?: { lat: number; lng: number } | null; // 지도를 옮기지 않고 내 위치 점만 찍는다 (내 나무 찾아가기에서 걸어가며 갱신)
 }
 
-export default function KakaoTreeMap({ appKey, center, level, trees, selectedId, onSelect, onBoundsChange, flyTo, kindOf }: Props) {
+export default function KakaoTreeMap({ appKey, center, level, trees, selectedId, onSelect, onBoundsChange, flyTo, kindOf, me }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const sdkRef = useRef<KakaoSdk | null>(null);
   const mapRef = useRef<KakaoMap | null>(null);
@@ -67,7 +80,7 @@ export default function KakaoTreeMap({ appKey, center, level, trees, selectedId,
       const node = document.createElement("button");
       node.className = "tree-dot";
       node.type = "button";
-      node.setAttribute("aria-label", `${t.species} ${t.code ?? ""}`);
+      node.setAttribute("aria-label", t.name);
       node.addEventListener("click", (e) => { e.stopPropagation(); onSelectRef.current(t); });
       const overlay = new sdk.maps.CustomOverlay({ position: new sdk.maps.LatLng(t.location.lat, t.location.lng), content: node, xAnchor: 0.5, yAnchor: 0.5, zIndex: 2 });
       overlay.setMap(map);
@@ -88,15 +101,15 @@ export default function KakaoTreeMap({ appKey, center, level, trees, selectedId,
   useEffect(() => {
     const sdk = sdkRef.current, map = mapRef.current;
     if (!sdk || !map || !flyTo) return;
-    const position = new sdk.maps.LatLng(flyTo.lat, flyTo.lng);
-    map.setCenter(position);
-    meOverlay.current?.setMap(null);
-    const node = document.createElement("div");
-    node.className = "me-dot";
-    node.setAttribute("aria-label", "내 위치");
-    meOverlay.current = new sdk.maps.CustomOverlay({ position, content: node, xAnchor: 0.5, yAnchor: 0.5, zIndex: 3 });
-    meOverlay.current.setMap(map);
+    map.setCenter(drawMeDot(sdk, map, meOverlay, flyTo));
   }, [flyTo, ready]);
+
+  // 내 위치 점만 갱신 (지도는 그대로)
+  useEffect(() => {
+    const sdk = sdkRef.current, map = mapRef.current;
+    if (!sdk || !map || !me) return;
+    drawMeDot(sdk, map, meOverlay, me);
+  }, [me, ready]);
 
   return (
     <div className="map kakao">

@@ -31,14 +31,25 @@ export async function createUser(opts: { role?: 'citizen' | 'officer'; agency?: 
   return { id, token: signToken(id) };
 }
 
-export async function createTree(opts: { agency?: string; species?: string; code?: string } = {}) {
+export async function createTree(
+  opts: { agency?: string; species?: string; code?: string; lng?: number; lat?: number; roadName?: string } = {},
+) {
   seq += 1;
   const agency = opts.agency ?? '중구';
+  // 위치를 안 주면 경도 126.97 + seq/1e6, 위도 37.56 에 놓는다
   const { rows } = await getPool().query<{ id: number }>(
     `INSERT INTO trees (source_key, species, location, agency, district, dong, road_name, address, code)
-     VALUES ($1, $2, ST_SetSRID(ST_MakePoint(126.97 + $3::float8 / 1e6, 37.56), 4326)::geography, $4, $4, '명동', '명동길', '서울특별시 중구 명동 1', $5)
+     VALUES ($1, $2, ST_SetSRID(ST_MakePoint($5::float8, $6::float8), 4326)::geography, $3, $3, '명동', $7, '서울특별시 중구 명동 1', $4)
      RETURNING id`,
-    [`${agency}|test|${seq}`, opts.species ?? '은행나무', seq, agency, opts.code ?? null],
+    [
+      `${agency}|test|${seq}`,
+      opts.species ?? '은행나무',
+      agency,
+      opts.code ?? null,
+      opts.lng ?? 126.97 + seq / 1e6,
+      opts.lat ?? 37.56,
+      opts.roadName ?? '명동길',
+    ],
   );
   return rows[0]!.id;
 }

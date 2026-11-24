@@ -4,7 +4,7 @@ import type { ApiRecord, MyApplication } from './api'
 export type MyTreeSummary = {
   id: number
   species: string
-  place: string // 노선 → 동 → 자치구 중 있는 것
+  name: string // 나무 이름 "은행나무, 소파로 3번" (서버의 Tree.name)
   lastActivityDate: string | null // 이번 달 마지막 활동 기록 날짜 (없으면 null)
 }
 
@@ -29,7 +29,7 @@ export function myActiveTrees(applications: MyApplication[], records: ApiRecord[
     trees.push({
       id: a.tree.id,
       species: a.tree.species,
-      place: a.tree.roadName ?? a.tree.dong ?? a.tree.district,
+      name: a.tree.name,
       lastActivityDate: dates.at(-1) ?? null,
     })
   }

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import FindMyTree from '../components/FindMyTree'
 import TopBar from '../components/TopBar'
 import TreeRingsPanel from '../components/TreeRingsPanel'
 import { api, ApiError, type SpeciesCard, type StoryEntry, type TreeDetail } from '../lib/api'
-import { isActiveCaregiver } from '../lib/caregiver'
+import { isActiveCaregiver, isMyTree } from '../lib/caregiver'
 import { formatShortDate, toDateKey } from '../lib/date'
 import { addToCart } from '../store/applyCart'
 import { useAuth } from '../store/authStore'
@@ -32,6 +33,7 @@ function TreeDetailView({ treeId }: { treeId: number }) {
   const auth = useAuth()
   const signedIn = auth.status === 'signed-in'
   const [caregiver, setCaregiver] = useState(false) // 내가 이 나무의 돌보미인지 (로그인했을 때만 확인)
+  const [mine, setMine] = useState(false) // 내가 신청한 나무인지 (대기·승인). 맞으면 "내 나무 찾아가기"를 보여 준다
 
   const [tree, setTree] = useState<TreeDetail | null>(null)
   const [entries, setEntries] = useState<StoryEntry[] | null>(null)
@@ -65,7 +67,9 @@ function TreeDetailView({ treeId }: { treeId: number }) {
     api
       .myApplications()
       .then((r) => {
-        if (alive) setCaregiver(isActiveCaregiver(r.applications, treeId))
+        if (!alive) return
+        setCaregiver(isActiveCaregiver(r.applications, treeId))
+        setMine(isMyTree(r.applications, treeId))
       })
       .catch(() => {})
     return () => {
@@ -75,11 +79,10 @@ function TreeDetailView({ treeId }: { treeId: number }) {
 
   if (error === 'notfound') return <NotFound />
 
-  const place = tree ? tree.roadName ?? tree.dong ?? tree.district : ''
 
   function becomeCaregiver() {
     if (!tree) return
-    addToCart({ id: tree.id, species: tree.species, place, district: tree.district, code: tree.code })
+    addToCart({ id: tree.id, species: tree.species, name: tree.name, district: tree.district, code: tree.code })
     navigate('/apply')
   }
 
@@ -106,7 +109,7 @@ function TreeDetailView({ treeId }: { treeId: number }) {
 
           <div className="page-title">
             <h1 className="display">
-              {tree.species}, {place}
+              {tree.name}
             </h1>
             <p className="body">
               {tree.address ?? `${tree.district} ${tree.dong ?? ''}`}
@@ -144,6 +147,9 @@ function TreeDetailView({ treeId }: { treeId: number }) {
               </div>
             )}
           </div>
+
+          {/* 신청한 내 나무면 거리에서 찾아가는 안내 (지도·남은 거리·양옆 나무·길찾기) */}
+          {signedIn && mine && <FindMyTree tree={tree} />}
 
           <div className="tc-tabs tree-tabs" role="tablist" aria-label="나무 정보">
             <button className="tc-tab" role="tab" type="button" aria-selected={tab === 'story'} onClick={() => setTab('story')}>

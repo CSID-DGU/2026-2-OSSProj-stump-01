@@ -128,7 +128,7 @@ export default function ApplyPage() {
             {done.map((a) => (
               <li key={a.id} className="tc-row">
                 <span className="tc-tree__name">
-                  {a.tree.species}, {a.tree.roadName ?? a.tree.dong ?? a.tree.district}
+                  {a.tree.name}
                 </span>
                 <span className="tc-status tc-status--wait">심사 대기</span>
               </li>
@@ -166,7 +166,7 @@ export default function ApplyPage() {
                 <li key={t.id} className="tc-row">
                   <span className="apply-tree">
                     <span className="tc-tree__name">
-                      {t.species}, {t.place}
+                      {t.name}
                     </span>
                     <span className="tc-tree__meta">{t.code ?? t.district}</span>
                   </span>
