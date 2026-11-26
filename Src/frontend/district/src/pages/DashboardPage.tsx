@@ -1,13 +1,16 @@
 // 한눈에 보기 (#28). 구청 웹 첫 화면. 숫자를 누르면 각 처리 화면으로 간다.
 // 위쪽 '처리할 일'은 달과 상관없이 지금 쌓여 있는 건수이고, 아래 '이달 현황'만 고른 달을 따른다(#71 API 기준).
 import { Link, useSearchParams } from 'react-router-dom';
-import { useDashboard } from '../api/dashboard';
-import { addMonths, currentMonth, daysSince, formatMinutes, monthLabel, todayLabel } from '../lib/format';
+import { getCareGaps } from '../api/careGaps';
+import { useDashboard, type Dashboard } from '../api/dashboard';
+import { useAsync } from '../api/useAsync';
+import { addMonths, currentMonth, daysSince, formatMinutes, formatShortDate, monthLabel, todayLabel } from '../lib/format';
 import { OLD_INCIDENT_DAYS } from '../lib/thresholds';
 import styles from './DashboardPage.module.css';
 
 const MONTH_OPTIONS = 12; // 월 선택에 보여 줄 달 수(이번 달부터 거꾸로)
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/; // 백엔드와 같은 YYYY-MM 검사
+const INACTIVE_LIST_LIMIT = 5; // 활동이 끊긴 나무 목록은 오래 끊긴 순으로 이만큼만 보여 준다
 
 export function DashboardPage() {
   const [params, setParams] = useSearchParams();
@@ -147,19 +150,23 @@ export function DashboardPage() {
               )}
             </section>
 
-            <section className={styles.section}>
-              <div className={styles.sectionHead}>
-                <h2>{monthLabel(data.month)} 봉사시간</h2>
-                <Link to={"/monthly-reports?status=approved"}>
-                  승인한 보고서 보기
-                </Link>
-              </div>
-              <div className={styles.hours}>
-                <span className={styles.number}>{formatMinutes(data.volunteerHours.minutes)}</span>
-                <span className={styles.muted}>보고서를 승인해 기록한 돌보미 {data.volunteerHours.people}명</span>
-              </div>
-              <p className={styles.note}>봉사시간은 구청이 승인한 보고서로만 기록됩니다. 시스템이 자동으로 정하지 않습니다.</p>
-            </section>
+            <div className={styles.stack}>
+              <section className={styles.section}>
+                <div className={styles.sectionHead}>
+                  <h2>{monthLabel(data.month)} 봉사시간</h2>
+                  <Link to={"/monthly-reports?status=approved"}>
+                    승인한 보고서 보기
+                  </Link>
+                </div>
+                <div className={styles.hours}>
+                  <span className={styles.number}>{formatMinutes(data.volunteerHours.minutes)}</span>
+                  <span className={styles.muted}>보고서를 승인해 기록한 돌보미 {data.volunteerHours.people}명</span>
+                </div>
+                <p className={styles.note}>봉사시간은 구청이 승인한 보고서로만 기록됩니다. 시스템이 자동으로 정하지 않습니다.</p>
+              </section>
+
+              <CareGapSection month={data.month} counts={data.careGaps} orgSelected={organizationId !== null} />
+            </div>
           </div>
         </>
       )}
@@ -186,5 +193,62 @@ function IncidentCard({ data, to }: { data: { pending: number; inspecting: numbe
         )}
       </span>
     </Link>
+  );
+}
+
+/**
+ * 관리 사각지대 (#22): 돌보미가 없는 나무와, 돌보미는 있는데 이 달 활동이 끊긴 나무.
+ * 숫자는 한눈에 보기 집계에서, 끊긴 나무 목록은 /admin/care-gaps에서 가져온다. 나무 기준이라 단체 필터와 상관없다.
+ */
+function CareGapSection({ month, counts, orgSelected }: { month: string; counts: Dashboard['careGaps']; orgSelected: boolean }) {
+  const detail = useAsync(() => getCareGaps(month), [month]);
+  const trees = detail.data?.inactiveTrees.slice(0, INACTIVE_LIST_LIMIT) ?? [];
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.sectionHead}>
+        <h2>{monthLabel(month)} 관리 사각지대</h2>
+        {detail.data && <span className={styles.muted}>관리 나무 {detail.data.totals.trees.toLocaleString('ko-KR')}그루 중</span>}
+      </div>
+      <div className={styles.gapStats}>
+        <div className={styles.gapStat}>
+          <span className={styles.number}>{counts.noCaregiver.toLocaleString('ko-KR')}</span>
+          <span className={styles.muted}>돌보미가 없는 나무</span>
+        </div>
+        <div className={`${styles.gapStat} ${styles.gapInactive}`}>
+          <span className={styles.number}>{counts.inactive.toLocaleString('ko-KR')}</span>
+          <span className={styles.muted}>돌보미는 있는데 이달 활동이 끊긴 나무</span>
+        </div>
+      </div>
+
+      {detail.error && <p className={styles.note}>끊긴 나무 목록을 불러오지 못했습니다. {detail.error.message}</p>}
+      {trees.length > 0 && (
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>오래 끊긴 나무</th>
+              <th>위치</th>
+              <th className={styles.num}>마지막 활동</th>
+            </tr>
+          </thead>
+          <tbody>
+            {trees.map((t) => (
+              <tr key={t.id}>
+                <td>
+                  {t.species}
+                  <span className={styles.muted}> {t.code ?? `#${t.id}`}</span>
+                </td>
+                <td>{[t.dong ?? t.district, t.roadName].filter(Boolean).join(' ')}</td>
+                <td className={styles.num}>{t.lastActivityDate ? formatShortDate(t.lastActivityDate) : '기록 없음'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className={styles.note}>
+        돌보미가 있다는 것은 그 달에 활동 기간이 걸친 승인된 신청서가 있다는 뜻입니다.
+        {orgSelected && ' 나무 기준이라 단체를 골라도 관리청 전체 숫자입니다.'}
+      </p>
+    </section>
   );
 }
