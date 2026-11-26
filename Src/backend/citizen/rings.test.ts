@@ -2,7 +2,15 @@ import request from 'supertest';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../app.js';
 import { closePool, getPool } from '../common/db.js';
-import { createActivity, createIncident, createMonthlyReport, createTree, createUser, resetData } from '../test/fixtures.js';
+import {
+  createActivity,
+  createIncident,
+  createMonthlyReport,
+  createStoryEntry,
+  createTree,
+  createUser,
+  resetData,
+} from '../test/fixtures.js';
 
 const api = createApp();
 
@@ -37,21 +45,8 @@ async function approve(reportId: number, officerId: number) {
   await getPool().query(`UPDATE monthly_reports SET status = 'approved', reviewed_by = $2, reviewed_at = now() WHERE id = $1`, [reportId, officerId]);
 }
 
-/** 나무의 이야기에 글 하나를 넣는다 (시민-BE 이야기 쓰기를 흉내 낸다) */
-async function addStoryEntry(treeId: number, userId: number, createdAt: string, isPublic: boolean) {
-  const pool = getPool();
-  const story = await pool.query<{ id: number }>(
-    `WITH found AS (SELECT id FROM stories WHERE tree_id = $1),
-          made AS (INSERT INTO stories (tree_id) SELECT $1 WHERE NOT EXISTS (SELECT 1 FROM found) RETURNING id)
-     SELECT id FROM found UNION ALL SELECT id FROM made`,
-    [treeId],
-  );
-  const { rows } = await pool.query<{ id: number }>(
-    `INSERT INTO story_entries (story_id, user_id, body, is_public, created_at) VALUES ($1, $2, '글', $3, $4) RETURNING id`,
-    [story.rows[0]!.id, userId, isPublic, createdAt],
-  );
-  return rows[0]!.id;
-}
+const addStoryEntry = (treeId: number, userId: number, createdAt: string, isPublic: boolean) =>
+  createStoryEntry({ treeId, userId, createdAt, isPublic });
 
 describe('GET /trees/:id/rings', () => {
   it('로그인 없이 1월~12월 12조각을 준다', async () => {
@@ -137,6 +132,30 @@ describe('GET /trees/:id/rings', () => {
 
     expect(month(res.body, 5)).toMatchObject({ reported: 1, resolved: 0 });
     expect(month(res.body, 6)).toMatchObject({ reported: 0, resolved: 1 });
+  });
+
+  it('받은 호응은 그 나무 이야기 글에 남은 좋아요·한 줄 응답을 남긴 날(한국 날짜)의 달에 센다 (#65)', async () => {
+    const tree = await createTree();
+    const otherTree = await createTree();
+    const me = await createUser();
+    const entry = await createStoryEntry({ treeId: tree, userId: me.id });
+    const otherEntry = await createStoryEntry({ treeId: otherTree, userId: me.id });
+    const react = (entryId: number, device: string, on: string, kind = 'like') =>
+      getPool().query(
+        `INSERT INTO story_reactions (story_entry_id, kind, body, device_key, reacted_on) VALUES ($1, $2, $3, $4, $5)`,
+        [entryId, kind, kind === 'reply' ? '고마워요' : null, device, on],
+      );
+    await react(entry, 'device-a', '2026-07-03');
+    await react(entry, 'device-b', '2026-07-20', 'reply');
+    await react(entry, 'device-a', '2026-09-01');
+    await react(entry, 'device-a', '2025-07-03'); // 다른 해
+    await react(otherEntry, 'device-a', '2026-07-03'); // 다른 나무
+
+    const res = await rings(tree, 2026);
+
+    expect(month(res.body, 7)!.reactions).toBe(2);
+    expect(month(res.body, 9)!.reactions).toBe(1);
+    expect(month(res.body, 8)!.reactions).toBe(0);
   });
 
   it('없는 나무는 404, 연도가 숫자가 아니거나 범위 밖이면 400', async () => {
