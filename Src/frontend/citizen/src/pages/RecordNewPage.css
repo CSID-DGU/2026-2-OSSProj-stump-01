@@ -71,3 +71,13 @@
   align-items: flex-start;
   gap: var(--space-3);
 }
+
+/* 현장 확인 미리 보기 (#13): 통과하면 초록, 사진이 필요하면 흙색 */
+.record-site {
+  margin: var(--space-2) 0 0;
+  color: var(--earth);
+}
+
+.record-site--ok {
+  color: var(--primary);
+}
