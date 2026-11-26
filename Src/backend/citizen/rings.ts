@@ -39,7 +39,7 @@ treeRingsRouter.get('/:id/rings', async (req, res) => {
   const tree = await pool.query('SELECT 1 FROM trees WHERE id = $1', [id]);
   if (tree.rowCount === 0) throw notFound('나무를 찾을 수 없다.');
 
-  const [weather, care, activityDays, stories, incidents] = await Promise.all([
+  const [weather, care, activityDays, stories, incidents, reactions] = await Promise.all([
     // 받은 비·더위: 서울 기상 일자료(ASOS)를 달별로 (모든 나무가 같은 값)
     pool.query<{ month: number; rain_mm: number; temp_max_avg: number | null; heat_days: number }>(
       `SELECT extract(month FROM date)::int AS month,
@@ -78,6 +78,16 @@ treeRingsRouter.get('/:id/rings', async (req, res) => {
     ),
     // 표식: 신고 접수·조치 완료 (구청-BE가 만든 공용 함수, #21)
     monthlyIncidentMarkers(pool, id, year),
+    // 표식: 받은 호응 (#65). 남긴 날(reacted_on, 한국 날짜) 기준
+    pool.query<{ month: number; count: number }>(
+      `SELECT extract(month FROM x.reacted_on)::int AS month, count(*)::int AS count
+       FROM story_reactions x
+       JOIN story_entries e ON e.id = x.story_entry_id
+       JOIN stories s ON s.id = e.story_id
+       WHERE s.tree_id = $1 AND ${IN_YEAR('x.reacted_on')}
+       GROUP BY 1`,
+      [id, year],
+    ),
   ]);
 
   const view: TreeRingsView = {
@@ -89,6 +99,7 @@ treeRingsRouter.get('/:id/rings', async (req, res) => {
       activityDays: activityDays.rows,
       stories: stories.rows,
       incidents,
+      reactions: reactions.rows,
     }),
   };
   res.json(view);

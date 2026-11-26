@@ -1101,6 +1101,83 @@ paths:
                           roadName: { type: [string, 'null'] }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /story-entries/{id}/reactions:
+    post:
+      tags: [시민]
+      summary: 이야기 글에 호응 남기기 (좋아요·한 줄 응답, 로그인 없음)
+      description: >-
+        QR로 들어온 지나가는 시민이 공개 이야기 글에 남긴다. 로그인이 없어 deviceKey로 기기를 구분하며,
+        같은 기기는 글 하나에 하루(한국 날짜) 한 번만 남길 수 있다(좋아요·한 줄 응답 합쳐서, 넘으면 409 ALREADY_REACTED).
+        글쓴 돌보미에게 story_reaction 알림이 가고, 나이테 표식(RingMonth.reactions)에 센다. 순위에는 넣지 않는다.
+        한 줄 응답 내용은 글쓴 돌보미만 본다(알림, GET /me/reactions). 비공개 글이면 404.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer }, description: 이야기 글 id }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, deviceKey]
+              properties:
+                kind: { type: string, enum: [like, reply], description: 좋아요 / 한 줄 응답 }
+                body: { type: string, minLength: 1, maxLength: 80, description: 한 줄 응답일 때만 (좋아요에는 넣지 않는다) }
+                deviceKey:
+                  type: string
+                  pattern: '^[A-Za-z0-9_-]{16,64}$'
+                  description: 시민 웹이 기기마다 한 번 만들어 저장해 두는 무작위 값(예 crypto.randomUUID()). 응답·알림에 내보내지 않는다
+      responses:
+        '201':
+          description: 남김
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer }
+                  kind: { type: string, enum: [like, reply] }
+                  body: { type: [string, 'null'] }
+                  createdAt: { type: string, format: date-time }
+                  likeCount: { type: integer, description: 남긴 뒤 그 글의 좋아요 수 }
+                  replyCount: { type: integer, description: 남긴 뒤 그 글의 한 줄 응답 수 }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /me/reactions:
+    get:
+      tags: [시민]
+      summary: 내가 받은 호응
+      description: 내가 쓴 이야기 글들이 받은 좋아요·한 줄 응답을 최신순으로 준다. 남긴 사람(기기)은 알려 주지 않는다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: 받은 호응
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reactions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        kind: { type: string, enum: [like, reply] }
+                        body: { type: [string, 'null'], description: 한 줄 응답 내용 (좋아요면 null) }
+                        createdAt: { type: string, format: date-time }
+                        entry: { type: object, properties: { id: { type: integer } } }
+                        tree:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            name: { type: string, example: '은행나무, 소파로 3번' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -1486,7 +1563,7 @@ components:
               day: { type: integer }
         reported: { type: integer, description: 그 달 접수된 신고 수 }
         resolved: { type: integer, description: 그 달 조치 완료된 신고 수 }
-        reactions: { type: integer, description: 그 달 받은 호응 수. QR 호응(#65) 전까지 0 }
+        reactions: { type: integer, description: 그 달 받은 호응(좋아요·한 줄 응답) 수. 남긴 날(한국 날짜) 기준 }
     StoryEntry:
       type: object
       description: 공동 이야기에 덧붙인 글 하나

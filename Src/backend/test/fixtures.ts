@@ -157,6 +157,19 @@ export async function createRental(opts: { itemId: number; userId: number; quant
   return rows[0]!.id;
 }
 
+/** 나무의 이야기에 글 하나를 넣는다(시민-BE 이야기 쓰기를 흉내 낸다). 이야기 묶음이 없으면 같이 만든다. */
+export async function createStoryEntry(opts: { treeId: number; userId: number; isPublic?: boolean; createdAt?: string; body?: string }) {
+  const pool = getPool();
+  await pool.query('INSERT INTO stories (tree_id) VALUES ($1) ON CONFLICT (tree_id) DO NOTHING', [opts.treeId]);
+  const { rows } = await pool.query<{ id: number }>(
+    `INSERT INTO story_entries (story_id, user_id, body, is_public, created_at)
+     SELECT id, $2, $3, $4, COALESCE($5::timestamptz, now()) FROM stories WHERE tree_id = $1
+     RETURNING id`,
+    [opts.treeId, opts.userId, opts.body ?? '나무 이야기', opts.isPublic ?? true, opts.createdAt ?? null],
+  );
+  return rows[0]!.id;
+}
+
 /** 이상 신고(records type=report + reports)를 만든다(시민-BE가 하는 일을 흉내 낸다). */
 export async function createIncident(opts: {
   userId: number;

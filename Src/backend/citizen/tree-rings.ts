@@ -15,7 +15,7 @@ export type RingMonth = {
   stories: { id: number; day: number }[]; // 공개 이야기 글(별). 누르면 /story-entries/{id}
   reported: number; // 그 달 접수된 신고 수
   resolved: number; // 그 달 조치 완료된 신고 수
-  reactions: number; // 그 달 받은 호응 수. QR 호응(#65)이 생기기 전까지 0
+  reactions: number; // 그 달 받은 호응(좋아요·한 줄 응답, #65) 수. 남긴 날(한국 날짜) 기준
 };
 
 /** 출처별 월별 값. 없는 달은 빠져 있어도 된다 */
@@ -25,6 +25,7 @@ export type RingSources = {
   activityDays: { month: number; day: number }[];
   stories: { id: number; month: number; day: number }[];
   incidents: MonthlyIncidentMarker[];
+  reactions: { month: number; count: number }[];
 };
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
@@ -46,7 +47,7 @@ export function buildRingMonths(s: RingSources): RingMonth[] {
       stories: s.stories.filter((st) => st.month === month).map((st) => ({ id: st.id, day: st.day })),
       reported: incident?.reported ?? 0,
       resolved: incident?.resolved ?? 0,
-      reactions: 0, // #65 QR 호응이 생기면 그 달 받은 호응 수를 센다
+      reactions: s.reactions.find((r) => r.month === month)?.count ?? 0,
     };
   });
 }

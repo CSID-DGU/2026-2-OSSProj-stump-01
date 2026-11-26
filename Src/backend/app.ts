@@ -13,6 +13,7 @@ import { authRouter } from './citizen/auth.js';
 import { monthlyReportsRouter } from './citizen/monthly-reports.js';
 import { notificationsRouter } from './citizen/notifications.js';
 import { recordsRouter } from './citizen/records.js';
+import { meRouter, storyReactionsRouter } from './citizen/reactions.js';
 import { citizenRentalItemsRouter, citizenRentalsRouter } from './citizen/rentals.js';
 import { treeRingsRouter } from './citizen/rings.js';
 import { storyEntriesRouter, treeStoryRouter } from './citizen/stories.js';
@@ -45,6 +46,8 @@ export function createApp() {
   app.use('/trees', treeStoryRouter); // #64 나무별 공동 이야기 (보기는 로그인 없음)
   app.use('/trees', treeRingsRouter); // #12 디지털 나이테 월별 집계 (로그인 없음)
   app.use('/story-entries', storyEntriesRouter); // #64 이야기 글 하나 (로그인 없음)
+  app.use('/story-entries', storyReactionsRouter); // #65 QR 호응 남기기 (로그인 없음)
+  app.use('/me', meRouter); // #65 내가 받은 호응
   app.use('/notifications', notificationsRouter); // #7 알림
   app.use('/applications', applicationsRouter); // #6 돌보미 신청서
   app.use('/records', recordsRouter); // #5 활동 기록·이상 신고
