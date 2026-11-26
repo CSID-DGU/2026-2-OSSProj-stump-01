@@ -1,0 +1,79 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  background: var(--color-surface);
+  padding: 20px 22px;
+}
+.section + .section {
+  margin-top: 8px;
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sectionHead p {
+  margin: 4px 0 0;
+  font-size: var(--text-sm);
+}
+
+/* 필터·내려받기 줄 */
+.controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 19px;
+  background: var(--color-surface);
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+.inline {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.hours {
+  width: 90px;
+  height: 38px;
+}
+
+/* 칸이 많은 표는 좁은 화면에서 표만 가로로 넘긴다 */
+.tableWrap {
+  overflow-x: auto;
+}
+
+.totalRow td {
+  font-weight: 700;
+  border-top: 1px solid var(--color-text);
+  border-bottom: none;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+  gap: 28px;
+  margin-top: 8px;
+}
+.subTitle {
+  font-size: var(--text-md);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
