@@ -1,6 +1,8 @@
 // #5 날짜별 활동 기록·이상 신고 생성 (시민)
 // - 활동 기록(type=activity): 그 나무에 승인된 돌보미만, 오늘이 활동 기간 안일 때 남긴다. 활동일은 서버가 오늘(한국 시간)로 정한다.
 //   월간 보고서(#62)가 이 기록을 모은다.
+//   기록 검증(#13, Src/용어.md): 보낸 내 위치가 나무에서 LOCATION_CHECK_DISTANCE_M 안이고 위치 오차가 MAX_LOCATION_ACCURACY_M 이하면 '위치 확인'(location),
+//   아니면 사진이 꼭 있어야 하고 '사진 확인'(photo)으로 남긴다. 확인에 쓴 내 위치 좌표는 저장하지 않는다(필요한 것만 받는다).
 // - 이상 신고(type=report): 로그인한 시민이면 누구나 한다. '확인 필요'(pending)로 그 나무 관리청의 신고 처리 큐에 들어간다.
 //   공개 게시판처럼 보여 주지 않고, 상태 변경·조치 완료 알림은 구청-BE가 한다(CLAUDE.md 경계 규칙).
 // 사진은 multipart/form-data 의 photos 칸으로 3장까지 받는다(common/uploads.ts).
@@ -19,6 +21,8 @@ const MAX_DURATION_MIN = 600; // 하루 활동 시간 상한 (10시간)
 const MEMO_MAX_LENGTH = 200; // 짧은 글 (시민 웹 NOTE_MAX_LENGTH 와 같다)
 const KIND_SEPARATOR = ', '; // '한 일' 여러 개를 records.activity_kind 한 칸에 이어 저장한다
 const TIME_ZONE = 'Asia/Seoul'; // 활동일·"이번 달"은 한국 시간 달력 기준
+const LOCATION_CHECK_DISTANCE_M = 30; // 위치 확인 거리: 내 위치가 나무에서 이 안이면 현장으로 본다 (임시값 #59)
+const MAX_LOCATION_ACCURACY_M = 30; // 휴대폰이 알려 준 위치 오차 반경이 이보다 크면 위치를 믿지 않는다(사진으로 확인) (임시값 #59)
 
 // 신고 유형 → 긴급도. 시민이 고르지 않고 유형으로 정한다(db/ERD.md "신고 유형과 긴급도").
 const URGENCY_BY_CATEGORY = {
@@ -45,27 +49,39 @@ const memo = z
   .transform((v) => v || null);
 const treeId = z.coerce.number().int().positive();
 
-const activityBody = z.object({
-  type: z.literal('activity'),
-  treeId,
-  // 같은 이름으로 여러 번 보내면 배열, 한 번이면 글자 하나로 온다
-  activityKinds: z.preprocess(
-    (v) => (typeof v === 'string' ? [v] : v),
-    z
-      .array(
-        z
-          .string()
-          .trim()
-          .min(1)
-          .max(ACTIVITY_KIND_MAX_LENGTH)
-          .refine((k) => !k.includes(','), '한 일에는 쉼표를 쓸 수 없다.'),
-      )
-      .min(1)
-      .max(MAX_ACTIVITY_KINDS),
-  ),
-  durationMin: z.coerce.number().int().min(1).max(MAX_DURATION_MIN),
-  memo,
-});
+// 위치(선택). 둘 다 보내거나 둘 다 빼야 한다
+const latLng = {
+  lat: z.coerce.number().min(-90).max(90).optional(),
+  lng: z.coerce.number().min(-180).max(180).optional(),
+};
+const bothOrNeither = (b: { lat?: number; lng?: number }) => (b.lat === undefined) === (b.lng === undefined);
+const bothOrNeitherIssue = { path: ['lng'], message: '위도와 경도는 함께 보내야 한다.' };
+
+const activityBody = z
+  .object({
+    type: z.literal('activity'),
+    treeId,
+    // 같은 이름으로 여러 번 보내면 배열, 한 번이면 글자 하나로 온다
+    activityKinds: z.preprocess(
+      (v) => (typeof v === 'string' ? [v] : v),
+      z
+        .array(
+          z
+            .string()
+            .trim()
+            .min(1)
+            .max(ACTIVITY_KIND_MAX_LENGTH)
+            .refine((k) => !k.includes(','), '한 일에는 쉼표를 쓸 수 없다.'),
+        )
+        .min(1)
+        .max(MAX_ACTIVITY_KINDS),
+    ),
+    durationMin: z.coerce.number().int().min(1).max(MAX_DURATION_MIN),
+    memo,
+    ...latLng, // 기록할 때 내 위치 → 나무 근처인지 확인하는 데만 쓰고 저장하지 않는다
+    accuracy: z.coerce.number().min(0).max(100_000).optional(), // 휴대폰이 알려 준 위치 오차 반경(m, 선택)
+  })
+  .refine(bothOrNeither, bothOrNeitherIssue);
 
 const reportBody = z
   .object({
@@ -73,14 +89,9 @@ const reportBody = z
     treeId,
     category: z.enum(REPORT_CATEGORIES),
     memo,
-    // 신고할 때 내 위치 (선택). 둘 다 보내거나 둘 다 빼야 한다
-    lat: z.coerce.number().min(-90).max(90).optional(),
-    lng: z.coerce.number().min(-180).max(180).optional(),
+    ...latLng, // 신고할 때 내 위치 → 구청이 현장을 찾도록 저장한다
   })
-  .refine((b) => (b.lat === undefined) === (b.lng === undefined), {
-    path: ['lng'],
-    message: '위도와 경도는 함께 보내야 한다.',
-  });
+  .refine(bothOrNeither, bothOrNeitherIssue);
 
 const recordBody = z.discriminatedUnion('type', [activityBody, reportBody]);
 
@@ -93,6 +104,7 @@ const monthQuery = z.object({
 
 // ── 응답 형식 ──
 type ReportStatus = 'pending' | 'inspecting' | 'resolved'; // 확인 필요 / 현장 확인 / 조치 완료
+type Verification = 'none' | 'location' | 'photo'; // records.verification
 
 export type RecordView = {
   id: number;
@@ -103,7 +115,8 @@ export type RecordView = {
   durationMin: number | null;
   memo: string | null;
   photos: string[]; // /uploads/... 올린 순서대로
-  location: { lat: number; lng: number } | null; // 신고한 위치
+  location: { lat: number; lng: number } | null; // 신고한 위치 (활동 기록은 위치를 저장하지 않아 늘 null)
+  verification: Verification; // 기록 검증(#13): 위치 확인 / 사진 확인 / 없음(신고·이전 기록)
   monthlyReportId: number | null; // 월간 보고서에 넣었으면 그 보고서 id
   report: { category: ReportCategory; urgency: 'low' | 'high'; status: ReportStatus } | null;
   // name: "은행나무, 소파로 3번" (common/tree-name.ts)
@@ -112,7 +125,7 @@ export type RecordView = {
 
 // 생성 응답과 내 기록 목록이 같은 모양을 쓰도록 SELECT를 하나로 둔다. $1 = 기록한 시민
 const SELECT_MY_RECORD = `
-  SELECT r.id, r.type, r.recorded_at, r.activity_date, r.activity_kind, r.duration_min, r.memo, r.monthly_report_id,
+  SELECT r.id, r.type, r.recorded_at, r.activity_date, r.activity_kind, r.duration_min, r.memo, r.monthly_report_id, r.verification,
          ST_Y(r.location::geometry) AS lat, ST_X(r.location::geometry) AS lng,
          (SELECT coalesce(json_agg(p.url ORDER BY p.position), '[]'::json) FROM record_photos p WHERE p.record_id = r.id) AS photos,
          rp.category, rp.urgency, rp.status AS report_status,
@@ -131,6 +144,7 @@ type RecordRow = {
   duration_min: number | null;
   memo: string | null;
   monthly_report_id: number | null;
+  verification: Verification;
   lat: number | null;
   lng: number | null;
   photos: string[];
@@ -157,6 +171,7 @@ function toView(r: RecordRow): RecordView {
     memo: r.memo,
     photos: r.photos,
     location: r.lat === null || r.lng === null ? null : { lat: r.lat, lng: r.lng },
+    verification: r.verification,
     monthlyReportId: r.monthly_report_id,
     report: r.category && r.urgency && r.report_status ? { category: r.category, urgency: r.urgency, status: r.report_status } : null,
     tree: { id: r.tree_id, code: r.code, name: r.tree_name, species: r.species, district: r.district, dong: r.dong, roadName: r.road_name },
@@ -186,10 +201,26 @@ recordsRouter.post('/', photoUpload(), async (req, res) => {
         );
         if (!rowCount) throw new HttpError(403, 'FORBIDDEN', '이 나무의 승인된 돌보미만 활동 기간 안에 기록할 수 있다.');
 
+        // 기록 검증(#13): 나무 근처 위치가 확인되면 '위치 확인', 아니면 사진이 꼭 있어야 한다.
+        // 위치 오차가 크면(실내·건물 사이 등) 가까워 보여도 믿지 않는다
+        let nearTree = false;
+        const trustworthy = body.accuracy === undefined || body.accuracy <= MAX_LOCATION_ACCURACY_M;
+        if (body.lat !== undefined && body.lng !== undefined && trustworthy) {
+          const { rows: near } = await db.query<{ near: boolean }>(
+            `SELECT ST_DWithin(location, ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography, $3) AS near FROM trees WHERE id = $4`,
+            [body.lat, body.lng, LOCATION_CHECK_DISTANCE_M, body.treeId],
+          );
+          nearTree = near[0]?.near ?? false;
+        }
+        if (!nearTree && photos.length === 0) {
+          throw new HttpError(400, 'PHOTO_REQUIRED', `나무 근처(${LOCATION_CHECK_DISTANCE_M}m 안) 위치가 확인되지 않아 사진이 필요하다.`);
+        }
+        const verification: Verification = nearTree ? 'location' : 'photo';
+
         const { rows } = await db.query<{ id: number }>(
-          `INSERT INTO records (tree_id, user_id, type, activity_date, activity_kind, duration_min, memo, photo_url)
-           VALUES ($1, $2, 'activity', $3, $4, $5, $6, $7) RETURNING id`,
-          [body.treeId, userId, today, body.activityKinds.join(KIND_SEPARATOR), body.durationMin, body.memo, photos[0] ?? null],
+          `INSERT INTO records (tree_id, user_id, type, activity_date, activity_kind, duration_min, memo, photo_url, verification)
+           VALUES ($1, $2, 'activity', $3, $4, $5, $6, $7, $8) RETURNING id`,
+          [body.treeId, userId, today, body.activityKinds.join(KIND_SEPARATOR), body.durationMin, body.memo, photos[0] ?? null, verification],
         );
         id = rows[0]!.id;
       } else {

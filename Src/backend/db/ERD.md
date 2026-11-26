@@ -100,8 +100,8 @@ erDiagram
         int duration_min "활동 시간(분)"
         text memo
         varchar photo_url "첫 사진 (전체는 record_photos)"
-        geography location "기록한 위치, Point"
-        varchar verification "none | location | photo"
+        geography location "신고한 위치, Point (활동 기록은 저장 안 함)"
+        varchar verification "기록 검증: none | location | photo"
         bigint monthly_report_id FK "제출되면 채움"
         timestamptz created_at
     }
@@ -298,6 +298,7 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - **받은 호응**: 로그인 없이 남기므로 `device_key`로 기기를 구분한다. 같은 기기는 글 하나에 하루 한 번만 남길 수 있게 `(story_entry_id, device_key, reacted_on)`에 유니크 제약을 건다. `reacted_on`은 한국 날짜 기준이다. 한 줄 응답은 80자까지다.
 - **단체 관리자**: `users.role`이 아니라 `organization_members.role = 'admin'`으로 판단한다. 단체 관리자도 자기 나무를 돌보는 돌보미다.
 - **위치**: `geography(Point, 4326)`을 쓴다. 위치 확인 거리는 `ST_DWithin`, 지도 범위 조회는 공간 인덱스(GiST)로 처리한다.
+- **기록 검증(#13)**: 활동 기록을 남길 때 보낸 내 위치가 나무에서 30m(`LOCATION_CHECK_DISTANCE_M`) 안이고 휴대폰 위치 오차가 30m(`MAX_LOCATION_ACCURACY_M`) 이하면 `verification = 'location'`, 아니면 사진이 꼭 있어야 하고 `'photo'`로 남긴다. 두 값은 `citizen/records.ts` 위쪽 상수이고 구청 확인 전 임시값(#59)이다. 확인에 쓴 내 위치 좌표는 저장하지 않는다(`records.location`은 신고만 채운다). `'none'`은 신고와 이 규칙 전에 남긴 기록이다.
 - **관리청과 위치를 나눈다**: 가로수 데이터의 관리 주체(관리청)는 나무가 서 있는 자치구와 다를 수 있다(아래 "가로수 원본 데이터" 참고).
   - `agency`(관리청): 신청 심사·보고서 검토·물품·신고 배정과 구청 담당자 권한의 기준. 25개 자치구 + `서울시설공단` + `중부공원여가센터`.
   - `district`, `dong`(위치): 지도 필터와 동·노선 집계의 기준.

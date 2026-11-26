@@ -229,6 +229,7 @@ export type ApiRecord = {
   memo: string | null
   photos: string[]
   location: { lat: number; lng: number } | null
+  verification: 'none' | 'location' | 'photo' // 기록 검증(#13): 위치 확인 / 사진 확인 / 없음(신고)
   monthlyReportId: number | null
   report: { category: string; urgency: 'low' | 'high'; status: 'pending' | 'inspecting' | 'resolved' } | null
   tree: { id: number; code: string | null; name: string; species: string; district: string; dong: string | null; roadName: string | null }
@@ -293,8 +294,10 @@ export type MyMonthlyReport = {
 }
 
 // 기록 만들기 입력. 화면이 FormData로 바꿔 보낸다
+// lat·lng: 내 위치(선택). 활동 기록은 나무 근처인지 확인하는 데만 쓰고(#13, 저장 안 함), 신고는 구청이 현장을 찾도록 저장한다
 export type NewRecord =
-  | { type: 'activity'; treeId: number; activityKinds: string[]; durationMin: number; memo: string; photos: File[] }
+  // accuracy: 휴대폰이 알려 준 위치 오차 반경(m). 30m보다 크면 서버가 위치 확인으로 치지 않는다
+  | { type: 'activity'; treeId: number; activityKinds: string[]; durationMin: number; memo: string; photos: File[]; lat?: number; lng?: number; accuracy?: number }
   | { type: 'report'; treeId: number; category: string; memo: string; photos: File[]; lat?: number; lng?: number }
 
 function recordForm(input: NewRecord): FormData {
@@ -304,12 +307,13 @@ function recordForm(input: NewRecord): FormData {
   if (input.type === 'activity') {
     input.activityKinds.forEach((k) => f.append('activityKinds', k)) // 같은 이름으로 여러 번 (쉼표 불가)
     f.append('durationMin', String(input.durationMin))
+    if (input.accuracy !== undefined) f.append('accuracy', String(input.accuracy))
   } else {
     f.append('category', input.category)
-    if (input.lat !== undefined && input.lng !== undefined) {
-      f.append('lat', String(input.lat))
-      f.append('lng', String(input.lng))
-    }
+  }
+  if (input.lat !== undefined && input.lng !== undefined) {
+    f.append('lat', String(input.lat))
+    f.append('lng', String(input.lng))
   }
   if (input.memo) f.append('memo', input.memo)
   input.photos.forEach((p) => f.append('photos', p))
