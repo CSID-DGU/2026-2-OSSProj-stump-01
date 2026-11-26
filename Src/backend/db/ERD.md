@@ -34,6 +34,7 @@ erDiagram
     records ||--o{ record_photos : "사진 (최대 3장)"
     rental_items ||--o{ rentals : "지급한다"
     organizations ||--o{ organization_members : "소속"
+    organizations ||--o{ organization_sections : "관심 구간"
 
     users {
         bigint id PK
@@ -225,6 +226,14 @@ erDiagram
         timestamptz joined_at
     }
 
+    organization_sections {
+        bigint id PK
+        bigint organization_id FK
+        varchar district "자치구"
+        varchar place "길: 노선명 → 동 → 자치구 중 있는 것"
+        timestamptz created_at
+    }
+
     weather {
         date date PK
         varchar region PK "seoul"
@@ -310,6 +319,14 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - 길: `COALESCE(road_name, dong, district)`. 같은 이름의 길이 여러 구에 걸쳐도 서울 전체에서 번호를 이어 매기므로 서울 전체에서 이름이 겹치지 않는다(유니크 인덱스 `trees_place_no_key`).
 - 부여: `assign_tree_codes()`가 관리번호를 매긴 뒤 `place_no`가 비어 있는 나무에 매긴다. 길마다 쓰인 가장 큰 번호 다음부터 관리번호 순으로 이어 붙인다. 기존 번호는 바뀌지 않는다. 적재 스크립트는 따로 고칠 것이 없다.
 - 원본 갱신으로 길(노선명·동·자치구)이 바뀐 나무는 트리거 `trees_reset_place_no`가 번호를 비우고, 다음 `assign_tree_codes()`에서 새 길의 다음 번호를 받는다.
+
+## 단체 관심 구간 `organization_sections` (마이그레이션 20261126120000_organization_sections, #143)
+
+단체가 도로·거리 구간을 골라 두면, 그 구간의 **모든 돌보미**(단체 회원이 아니어도) 활동을 구간·나무 단위 **익명 합계**로 본다(`GET /organizations/{id}/section-report`). 사람은 세기만 하고 내보내지 않는다.
+
+- 구간 = 자치구(`district`) + 길(`place` = 나무의 `COALESCE(road_name, dong, district)`). 같은 이름의 길도 자치구가 다르면 다른 구간이다. `(organization_id, district, place)` 유일.
+- 관리자만 추가·삭제, 회원은 조회. 단체를 지우면 같이 지운다(`ON DELETE CASCADE`). 단체당 20개(임시값, 코드 상수).
+- 구간의 나무를 찾는 조회를 위해 `trees_section_idx (district, COALESCE(road_name, dong, district))` 인덱스를 둔다.
 
 ## 돌보미 신청서 양식 항목 (마이그레이션 20261117120000_application_form_fields, #6)
 

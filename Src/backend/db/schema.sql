@@ -254,6 +254,40 @@ ALTER TABLE public.organization_members ALTER COLUMN id ADD GENERATED ALWAYS AS 
 
 
 --
+-- Name: organization_sections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organization_sections (
+    id bigint NOT NULL,
+    organization_id bigint NOT NULL,
+    district text NOT NULL,
+    place text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE organization_sections; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.organization_sections IS '단체 관심 구간. 단체 관리자가 추가·삭제하고, 그 구간의 돌보미 활동을 익명 합계로 본다(#143)';
+
+
+--
+-- Name: organization_sections_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organization_sections ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.organization_sections_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: organizations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -773,6 +807,22 @@ ALTER TABLE ONLY public.organization_members
 
 
 --
+-- Name: organization_sections organization_sections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_sections
+    ADD CONSTRAINT organization_sections_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organization_sections organization_sections_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_sections
+    ADD CONSTRAINT organization_sections_unique UNIQUE (organization_id, district, place);
+
+
+--
 -- Name: organizations organizations_invite_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1122,6 +1172,13 @@ CREATE UNIQUE INDEX trees_place_no_key ON public.trees USING btree (COALESCE(roa
 
 
 --
+-- Name: trees_section_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX trees_section_idx ON public.trees USING btree (district, COALESCE(road_name, dong, district));
+
+
+--
 -- Name: volunteer_hours_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1213,6 +1270,14 @@ ALTER TABLE ONLY public.organization_members
 
 ALTER TABLE ONLY public.organization_members
     ADD CONSTRAINT organization_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: organization_sections organization_sections_organization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_sections
+    ADD CONSTRAINT organization_sections_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
 
 
 --
@@ -1370,4 +1435,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20261117120000'),
     ('20261120120000'),
     ('20261120150000'),
-    ('20261124140000');
+    ('20261124140000'),
+    ('20261126120000');

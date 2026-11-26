@@ -13,6 +13,7 @@ import { authRouter } from './citizen/auth.js';
 import { monthlyReportsRouter } from './citizen/monthly-reports.js';
 import { notificationsRouter } from './citizen/notifications.js';
 import { recordsRouter } from './citizen/records.js';
+import { organizationSectionsRouter } from './citizen/organization-sections.js';
 import { organizationsRouter } from './citizen/organizations.js';
 import { meRouter, storyReactionsRouter } from './citizen/reactions.js';
 import { citizenRentalItemsRouter, citizenRentalsRouter } from './citizen/rentals.js';
@@ -50,6 +51,7 @@ export function createApp() {
   app.use('/story-entries', storyReactionsRouter); // #65 QR 호응 남기기 (로그인 없음)
   app.use('/me', meRouter); // #65 내가 받은 호응
   app.use('/organizations', organizationsRouter); // #66 단체 계정·단체 리포트
+  app.use('/organizations', organizationSectionsRouter); // #143 단체 관심 구간·구간 리포트
   app.use('/notifications', notificationsRouter); // #7 알림
   app.use('/applications', applicationsRouter); // #6 돌보미 신청서
   app.use('/records', recordsRouter); // #5 활동 기록·이상 신고
