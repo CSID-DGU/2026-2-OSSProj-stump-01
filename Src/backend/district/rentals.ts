@@ -8,6 +8,7 @@ import { officerOf } from '../common/auth.js';
 import { getPool, withTransaction, type Db } from '../common/db.js';
 import { conflict, notFound } from '../common/errors.js';
 import { createNotification } from '../common/notifications.js';
+import { findOrganization, memberOfSql, organizationIdQuery } from './organization-filter.js';
 
 // ── 기준값 ──
 const DEFAULT_PAGE_SIZE = 50;
@@ -115,6 +116,7 @@ const listQuery = z.object({
   status: z.enum(RENTAL_STATUSES).default('requested'),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   offset: z.coerce.number().int().min(0).default(0),
+  organizationId: organizationIdQuery, // 그 단체 회원의 신청만
 });
 
 // 승인 / 반려(사유 선택) / 수령
@@ -189,14 +191,20 @@ export const rentalsRouter = Router();
 // 목록: 승인 대기(requested)는 오래 기다린 순, 나머지는 최근 순
 rentalsRouter.get('/', async (req, res) => {
   const { agency } = officerOf(req);
-  const { status, limit, offset } = listQuery.parse(req.query);
+  const { status, limit, offset, organizationId } = listQuery.parse(req.query);
   const order = status === 'requested' ? 'r.created_at ASC, r.id ASC' : 'r.created_at DESC, r.id DESC';
   const pool = getPool();
+  await findOrganization(pool, organizationId); // 없는 단체면 404
+  const org = organizationId ?? null;
   const [{ rows }, total] = await Promise.all([
-    pool.query(`${SELECT_RENTAL} AND r.status = $2 ORDER BY ${order} LIMIT $3 OFFSET $4`, [agency, status, limit, offset]),
+    pool.query(
+      `${SELECT_RENTAL} AND r.status = $2 AND ${memberOfSql('r.user_id', '$5')} ORDER BY ${order} LIMIT $3 OFFSET $4`,
+      [agency, status, limit, offset, org],
+    ),
     pool.query<{ count: number }>(
-      `SELECT count(*) FROM rentals r JOIN rental_items i ON i.id = r.item_id WHERE i.agency = $1 AND r.status = $2`,
-      [agency, status],
+      `SELECT count(*) FROM rentals r JOIN rental_items i ON i.id = r.item_id
+       WHERE i.agency = $1 AND r.status = $2 AND ${memberOfSql('r.user_id', '$3')}`,
+      [agency, status, org],
     ),
   ]);
   res.json({ items: rows.map(toRentalView), total: total.rows[0]!.count, limit, offset });
