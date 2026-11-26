@@ -16,7 +16,9 @@ import {
 } from '../content/recordOptions'
 import { api, ApiError, type ApiRecord } from '../lib/api'
 import { formatKoreanDate, todayKey } from '../lib/date'
+import { formatDistance } from '../lib/geo'
 import { myActiveTrees } from '../lib/homeSummary'
+import { checkSite, LOCATION_CHECK_DISTANCE_M, MAX_LOCATION_ACCURACY_M } from '../lib/siteCheck'
 import './RecordNewPage.css'
 
 type Mode = 'activity' | 'report'
@@ -46,6 +48,8 @@ export default function RecordNewPage() {
   const [location, setLocation] = useState<Located | null>(null)
   const [locating, setLocating] = useState(false)
   const [locationMessage, setLocationMessage] = useState('')
+  // 현장 확인에 쓸 나무 좌표 (위치를 확인한 뒤 고른 나무의 상세에서 받는다)
+  const [treeSpot, setTreeSpot] = useState<{ treeId: number; lat: number; lng: number } | null>(null)
 
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -82,6 +86,22 @@ export default function RecordNewPage() {
     }
   }, [urlTreeId, date])
 
+  // 위치를 확인했으면 고른 나무의 좌표를 받아 둔다 (나무까지 거리를 화면에서 바로 보여 주려고)
+  const pickedTreeId = treeIds[0]
+  useEffect(() => {
+    if (mode !== 'activity' || !location || !pickedTreeId || treeSpot?.treeId === pickedTreeId) return
+    let alive = true
+    api
+      .tree(pickedTreeId)
+      .then((t) => {
+        if (alive) setTreeSpot({ treeId: t.id, lat: t.location.lat, lng: t.location.lng })
+      })
+      .catch(() => {}) // 못 받으면 거리 없이 두고, 판정은 저장할 때 서버가 한다
+    return () => {
+      alive = false
+    }
+  }, [mode, location, pickedTreeId, treeSpot?.treeId])
+
   if (saved) {
     return <RecordSaved record={saved.record} treeName={saved.tree.name} agency={saved.tree.agency} daysBefore={saved.daysBefore} daysAfter={saved.daysAfter} />
   }
@@ -89,14 +109,19 @@ export default function RecordNewPage() {
   // 돌봄 기록은 내 나무에만, 신고는 아무 나무에나
   const options = (trees ?? []).filter((t) => mode === 'report' || t.mine)
   const tree = options.find((t) => t.id === treeIds[0])
+  // 현장 확인 미리 보기: 나무까지 거리와 통과 여부 (최종 판정은 저장할 때 서버)
+  const site = location && treeSpot && treeSpot.treeId === tree?.id ? checkSite(location, treeSpot) : null
 
   const missing: string[] = []
   if (!tree) missing.push('나무')
   if (mode === 'activity') {
     if (activities.length === 0) missing.push('한 일')
     if (minutes.length === 0) missing.push('활동 시간')
-    // 기록 검증(#13): 나무 근처 위치가 확인되지 않으면 사진이 필요하다. 거리는 서버가 확인한다
-    if (!location && photos.length === 0) missing.push('사진 또는 현장 위치')
+    // 기록 검증(#13): 나무 근처 위치가 확인되지 않으면 사진이 필요하다
+    if (photos.length === 0) {
+      if (!location) missing.push('사진 또는 현장 위치')
+      else if (site && site.verdict !== 'near') missing.push('사진')
+    }
   } else {
     if (reportType.length === 0) missing.push('신고 유형')
     if (photos.length === 0) missing.push('사진')
@@ -236,23 +261,34 @@ export default function RecordNewPage() {
                     <span className="tc-field__label">현장 확인</span>
                     <div className="tc-rows">
                       <div className="tc-row">
-                        <span>{location ? '내 위치' : '위치 확인 전'}</span>
-                        <span className="tc-row__value">{location ? `오차 약 ${location.accuracy}m` : '사진으로 대신할 수 있어요'}</span>
+                        <span>{location ? '나무까지' : '위치 확인 전'}</span>
+                        <span className={site && site.verdict !== 'near' ? 'tc-row__value tc-row__value--earth' : 'tc-row__value'}>
+                          {!location ? '사진으로 대신할 수 있어요' : site ? `약 ${formatDistance(site.distance)}` : '계산 중'}
+                        </span>
                       </div>
                     </div>
-                    {!location && (
-                      <div className="tc-choices__list field-only">
-                        <button type="button" className="tc-choice" onClick={findMyLocation} disabled={locating}>
-                          {locating ? '위치 찾는 중' : '나무 앞에서 위치 확인하기'}
-                        </button>
-                      </div>
+                    {site && (
+                      <p className={site.verdict === 'near' ? 'body record-site record-site--ok' : 'body record-site'} role="status">
+                        {site.verdict === 'near' && '현장으로 확인됐어요. 사진 없이 저장할 수 있어요.'}
+                        {site.verdict === 'far' && `나무에서 ${LOCATION_CHECK_DISTANCE_M}m보다 멀어요. 나무 앞으로 가서 다시 확인하거나 나무 사진을 올려 주세요.`}
+                        {site.verdict === 'blurry' &&
+                          `위치 오차가 약 ${location!.accuracy}m로 커서(${MAX_LOCATION_ACCURACY_M}m 넘음) 현장인지 알 수 없어요. 나무 사진을 올려 주세요.`}
+                      </p>
                     )}
+                    <div className="tc-choices__list field-only">
+                      <button type="button" className="tc-choice" onClick={findMyLocation} disabled={locating}>
+                        {locating ? '위치 찾는 중' : location ? '위치 다시 확인' : '나무 앞에서 위치 확인하기'}
+                      </button>
+                    </div>
                     <span className="tc-field__help">
-                      {locationMessage || '나무 30m 안에서 위치가 확인되면 사진 없이도 저장돼요. 위치는 확인에만 쓰고 저장하지 않아요.'}
+                      {locationMessage ||
+                        (location
+                          ? `내 위치 오차 약 ${location.accuracy}m · 위치는 확인에만 쓰고 저장하지 않아요.`
+                          : `나무 ${LOCATION_CHECK_DISTANCE_M}m 안에서 위치가 확인되면 사진 없이도 저장돼요. 위치는 확인에만 쓰고 저장하지 않아요.`)}
                     </span>
                   </div>
                   <PhotoPicker
-                    label={location ? '사진 (선택)' : '사진 (위치 확인을 안 하면 꼭 필요해요)'}
+                    label={!location ? '사진 (위치 확인을 안 하면 꼭 필요해요)' : site?.verdict === 'near' ? '사진 (선택)' : '사진 (꼭 필요해요)'}
                     photos={photos}
                     onChange={setPhotos}
                     max={MAX_PHOTOS}
