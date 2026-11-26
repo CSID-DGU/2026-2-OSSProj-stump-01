@@ -1,6 +1,7 @@
 // 상부 보고 내려받기 (#78). 월간 상부 보고와 연말 표창 대상을 화면에서 미리 보고 엑셀(CSV)로 내려받는다.
 // 미리보기와 파일은 같은 API(#73)에서 오므로 숫자가 같다. 집계 규칙은 백엔드가 정하고 화면은 보여 주기만 한다.
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useDashboard } from '../api/dashboard';
 import {
   downloadCommendations,
@@ -16,27 +17,68 @@ import styles from './ExportsPage.module.css';
 
 const MONTH_OPTIONS = 12; // 월 선택에 보여 줄 달 수(이번 달부터 거꾸로)
 const YEAR_OPTIONS = 3; // 연도 선택에 보여 줄 해 수(올해부터 거꾸로)
-
-type Org = { id: number; name: string };
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/; // 백엔드와 같은 YYYY-MM 검사
 
 export function ExportsPage() {
+  // 달·단체는 한눈에 보기처럼 주소(?month=&organizationId=)에 둔다. 새로고침하거나 주소를 넘겨도 같은 조건으로 열린다.
+  // 주소에 잘못된 값이 들어와도 400 에러 대신 기본값(이번 달, 전체)으로 보여 준다.
+  const [params, setParams] = useSearchParams();
+  const thisMonth = currentMonth();
+  const monthParam = params.get('month');
+  const month = monthParam && MONTH_RE.test(monthParam) ? monthParam : thisMonth;
+  const orgParam = Number(params.get('organizationId'));
+  const organizationId = Number.isInteger(orgParam) && orgParam > 0 ? orgParam : null;
+
+  function setFilter(key: 'month' | 'organizationId', value: string) {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  }
+
   // 단체 목록은 한눈에 보기 집계의 organizations를 쓴다(필터에 보여 줄 단체 목록)
   const { data: dashboard } = useDashboard({});
-  const organizations = dashboard?.organizations ?? [];
-  const agency = dashboard?.agency;
 
   return (
     <div className={ui.page}>
-      <header>
-        <h1 className={ui.title}>상부 보고</h1>
-        <p className={ui.lead}>
-          집계를 화면에서 확인하고 엑셀로 내려받습니다. 내려받은 파일은 엑셀에서 바로 열립니다.
-        </p>
+      <header className={styles.pageHead}>
+        <div>
+          <h1 className={ui.title}>상부 보고</h1>
+          <p className={ui.lead}>
+            집계를 화면에서 확인하고 엑셀로 내려받습니다. 내려받은 파일은 엑셀에서 바로 열립니다.
+          </p>
+        </div>
+        {/* 단체는 월간 보고와 표창 대상에 함께 적용한다 */}
+        <label className={styles.control} htmlFor="export-org">
+          <span>단체</span>
+          <select
+            id="export-org"
+            className={styles.select}
+            value={organizationId ?? ''}
+            onChange={(e) => setFilter('organizationId', e.target.value)}
+          >
+            <option value="">{dashboard ? `${dashboard.agency} 전체` : '전체'}</option>
+            {dashboard?.organizations.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </label>
       </header>
-      <MonthlySection organizations={organizations} agency={agency} />
-      <CommendationSection organizations={organizations} agency={agency} />
+      <MonthlySection
+        month={month}
+        onMonthChange={(m) => setFilter('month', m === thisMonth ? '' : m)}
+        organizationId={organizationId}
+      />
+      <CommendationSection organizationId={organizationId} />
     </div>
   );
+}
+
+/** 섹션 제목 뒤에 붙이는 단체 이름 (전체면 빈 문자열) */
+function orgSuffix(org: { name: string } | null | undefined) {
+  return org ? ` · ${org.name}` : '';
 }
 
 /** 내려받기 버튼 상태(받는 중, 실패 메시지)를 다루는 훅 */
@@ -57,27 +99,6 @@ function useDownload(run: () => Promise<void>) {
   return { busy, error, start };
 }
 
-function OrgSelect(props: { id: string; value: number | null; onChange: (v: number | null) => void; organizations: Org[]; agency?: string }) {
-  return (
-    <label className={styles.control} htmlFor={props.id}>
-      <span>단체</span>
-      <select
-        id={props.id}
-        className={styles.select}
-        value={props.value ?? ''}
-        onChange={(e) => props.onChange(e.target.value ? Number(e.target.value) : null)}
-      >
-        <option value="">{props.agency ? `${props.agency} 전체` : '전체'}</option>
-        {props.organizations.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
 const REGION_COLUMNS: { key: keyof ExportRegionCounts; label: string; minutes?: boolean }[] = [
   { key: 'trees', label: '관리 나무' },
   { key: 'caredTrees', label: '돌본 나무' },
@@ -95,31 +116,31 @@ function countCell(row: ExportRegionCounts, col: (typeof REGION_COLUMNS)[number]
   return col.minutes ? formatMinutes(value) : value.toLocaleString('ko-KR');
 }
 
-function MonthlySection({ organizations, agency }: { organizations: Org[]; agency?: string }) {
-  const thisMonth = currentMonth();
-  const [month, setMonth] = useState(thisMonth);
-  const [organizationId, setOrganizationId] = useState<number | null>(null);
+function MonthlySection(props: { month: string; onMonthChange: (month: string) => void; organizationId: number | null }) {
+  const { month, organizationId } = props;
   const { data, error, loading } = useAsync(() => getMonthlyExport({ month, organizationId }), [month, organizationId]);
   const download = useDownload(() => downloadMonthlyExport({ month, organizationId }));
 
+  const thisMonth = currentMonth();
   const months = Array.from({ length: MONTH_OPTIONS }, (_, i) => addMonths(thisMonth, -i));
+  // 주소로 1년보다 이전 달을 열었을 때도 선택 상자에 그 달이 보이게 한다
+  if (!months.includes(month)) months.push(month);
 
   return (
     <section className={styles.section} aria-labelledby="monthly-title">
       <div className={styles.sectionHead}>
         <div>
           <h2 id="monthly-title" className={ui.sectionTitle}>
-            월간 상부 보고
+            {monthLabel(month)} 월간 상부 보고{orgSuffix(data?.organization)}
           </h2>
           <p className={ui.muted}>
             구·동은 나무가 서 있는 위치 기준입니다. 단체를 고르면 그 단체 회원의 활동만 셉니다(관리 나무 수는 그대로).
           </p>
         </div>
         <div className={styles.controls}>
-          <OrgSelect id="monthly-org" value={organizationId} onChange={setOrganizationId} organizations={organizations} agency={agency} />
           <label className={styles.control} htmlFor="monthly-month">
             <span>달</span>
-            <select id="monthly-month" className={styles.select} value={month} onChange={(e) => setMonth(e.target.value)}>
+            <select id="monthly-month" className={styles.select} value={month} onChange={(e) => props.onMonthChange(e.target.value)}>
               {months.map((m) => (
                 <option key={m} value={m}>
                   {monthLabel(m)}
@@ -171,7 +192,7 @@ function MonthlySection({ organizations, agency }: { organizations: Org[]; agenc
                 {data.regions.map((r) => (
                   <tr key={`${r.district}-${r.dong ?? ''}`}>
                     <td>{r.district}</td>
-                    <td>{r.dong ?? '-'}</td>
+                    <td>{r.dong ?? '(동 정보 없음)'}</td>
                     {REGION_COLUMNS.map((c) => (
                       <td key={c.key} className={ui.num}>
                         {countCell(r, c)}
@@ -238,10 +259,9 @@ function MonthlySection({ organizations, agency }: { organizations: Org[]; agenc
   );
 }
 
-function CommendationSection({ organizations, agency }: { organizations: Org[]; agency?: string }) {
+function CommendationSection({ organizationId }: { organizationId: number | null }) {
   const thisYear = Number(currentMonth().slice(0, 4));
   const [year, setYear] = useState(thisYear);
-  const [organizationId, setOrganizationId] = useState<number | null>(null);
   // 기준 시간은 입력 중에 매번 다시 부르지 않도록 '적용'을 눌러야 바뀐다
   const [minHoursInput, setMinHoursInput] = useState('0');
   const [minHours, setMinHours] = useState(0);
@@ -264,14 +284,13 @@ function CommendationSection({ organizations, agency }: { organizations: Org[]; 
       <div className={styles.sectionHead}>
         <div>
           <h2 id="commendation-title" className={ui.sectionTitle}>
-            연말 표창 대상
+            {year}년 표창 대상{orgSuffix(data?.organization)}
           </h2>
           <p className={ui.muted}>
             그 해 이 관리청에서 승인된 봉사시간이 많은 순입니다(최대 500명). 실명이 들어가는 개인정보이니 필요한 곳에만 전달해 주세요.
           </p>
         </div>
         <div className={styles.controls}>
-          <OrgSelect id="commendation-org" value={organizationId} onChange={setOrganizationId} organizations={organizations} agency={agency} />
           <label className={styles.control} htmlFor="commendation-year">
             <span>연도</span>
             <select id="commendation-year" className={styles.select} value={year} onChange={(e) => setYear(Number(e.target.value))}>

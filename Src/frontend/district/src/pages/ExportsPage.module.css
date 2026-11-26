@@ -1,3 +1,12 @@
+/* 제목 + 단체 선택 (두 섹션에 함께 적용) */
+.pageHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
 .section {
   display: flex;
   flex-direction: column;
