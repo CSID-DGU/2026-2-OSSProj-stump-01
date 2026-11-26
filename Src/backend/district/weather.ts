@@ -1,6 +1,6 @@
 // #72 오늘의 날씨 API (시민 홈 화면용, 로그인 없음)
 // 기상청 단기예보(오늘 시간별 기온·강수, 최고·최저기온)와 기상특보(서울 발효 현황)를 받아 활동 추천 시간을 정한다.
-// ASOS 일자료는 전날까지만 있어서 오늘 날씨에는 쓸 수 없다(나이테용 일자료는 data/weather.py가 매일 적재).
+// ASOS 일자료는 전날까지만 있어서 오늘 날씨에는 쓸 수 없다(나이테용 일자료는 weather-daily.ts가 서버 안에서 매일 적재).
 // 인증키: Src/.env의 KMA_SERVICE_KEY. 공공데이터포털에서 단기예보·기상특보 조회서비스 활용 신청이 되어 있어야 한다.
 import { Router } from 'express';
 import { z } from 'zod';
@@ -39,7 +39,7 @@ async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
 }
 
 /** 공공데이터포털 공통 응답에서 항목 목록을 꺼낸다. 결과 코드가 00이 아니면 에러 */
-function itemsOf<T>(body: any): T[] {
+export function itemsOf<T>(body: any): T[] {
   const header = body?.response?.header;
   if (header?.resultCode === '03') return []; // NODATA_ERROR: 자료 없음(예: 발효 중인 특보 없음)
   if (header?.resultCode !== '00') throw new Error(`기상청 결과 코드 ${header?.resultCode} ${header?.resultMsg ?? ''}`);
