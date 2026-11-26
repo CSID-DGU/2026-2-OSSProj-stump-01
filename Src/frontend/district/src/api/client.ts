@@ -74,3 +74,30 @@ export async function api<T>(
   }
   return data as T;
 }
+
+/**
+ * 파일 내려받기. 토큰이 필요해서 <a href>로는 받을 수 없으므로 fetch로 받아 Blob으로 저장한다.
+ * 파일 이름은 응답의 Content-Disposition을 쓰고, 없으면 fallbackName을 쓴다.
+ */
+export async function downloadFile(path: string, query: Query | undefined, fallbackName: string): Promise<void> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(withQuery(path, query), { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    if (res.status === 401) onUnauthorized?.();
+    const err = data?.error;
+    throw new ApiError(res.status, err?.code ?? 'UNKNOWN', err?.message ?? `내려받기에 실패했다 (${res.status})`);
+  }
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? fallbackName;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
