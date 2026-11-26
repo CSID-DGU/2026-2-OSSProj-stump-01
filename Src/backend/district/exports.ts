@@ -7,9 +7,9 @@ import { z } from 'zod';
 import { officerOf } from '../common/auth.js';
 import { activeCaregiverSql, activityInMonthSql, CARE_GAP_TIME_ZONE } from '../common/care-gaps.js';
 import { getPool, type Db } from '../common/db.js';
-import { notFound } from '../common/errors.js';
 import { minutesToHours, toCsv, type Cell } from './csv.js';
 import { currentMonth } from './dashboard.js';
+import { findOrganization, memberOfSql, organizationIdQuery } from './organization-filter.js';
 
 // ── 기준값 ──
 const TIME_ZONE = CARE_GAP_TIME_ZONE; // 달·해는 한국 시간 달력 기준
@@ -17,7 +17,7 @@ const COMMENDATION_LIMIT = 500; // 표창 대상 목록 최대 인원
 
 // ── 요청 형식 ──
 const format = z.enum(['csv', 'json']).default('csv');
-const organizationId = z.coerce.number().int().positive().optional();
+const organizationId = organizationIdQuery;
 const monthlyQuery = z.object({
   month: z
     .string()
@@ -74,16 +74,8 @@ function monthRangeSql(param: string) {
   };
 }
 
-/** 사용자 컬럼이 단체 회원인지($2). 단체가 없으면 항상 참 */
-const inOrg = (userCol: string) =>
-  `($2::bigint IS NULL OR EXISTS (SELECT 1 FROM organization_members om WHERE om.organization_id = $2 AND om.user_id = ${userCol}))`;
-
-async function findOrganization(db: Db, id: number | null) {
-  if (id === null) return null;
-  const { rows } = await db.query<{ id: number; name: string }>('SELECT id, name FROM organizations WHERE id = $1', [id]);
-  if (!rows[0]) throw notFound('단체를 찾을 수 없다.');
-  return rows[0];
-}
+/** 사용자 컬럼이 단체($2) 회원인지. 단체가 없으면 항상 참 */
+const inOrg = (userCol: string) => memberOfSql(userCol, '$2');
 
 /**
  * 월간 상부 보고 집계. organizationId가 있으면 그 단체 회원의 활동만 센다(관리 나무 수는 그대로).
