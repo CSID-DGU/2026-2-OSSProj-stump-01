@@ -92,7 +92,7 @@ export async function loadDashboard(
     `WITH active AS (
        SELECT a.user_id, count(DISTINCT a.tree_id) AS tree_count
        FROM caregiver_applications a JOIN trees t ON t.id = a.tree_id
-       WHERE t.agency = $1 AND a.status = 'approved'
+       WHERE t.agency = $1 AND a.status IN ('approved', 'ended') -- ended: 기간이 끝나 종료된 승인 신청서(지난 달 집계용)
          AND a.period_start < ($3::date + interval '1 month') AND a.period_end >= $3::date
          AND ${inOrg('a.user_id')}
        GROUP BY a.user_id
