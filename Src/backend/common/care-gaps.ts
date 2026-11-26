@@ -3,6 +3,7 @@
 // 정의를 바꾸려면 이 파일만 고친다.
 //
 // - 돌보미가 있는 나무: 그 달에 활동 기간이 걸친 '승인된' 신청서가 있는 나무
+//   (기간이 끝나 'ended'로 바뀐 신청서도 승인됐던 것이라 지난 달 집계에서는 돌보미로 센다)
 // - 활동이 끊긴 나무: 돌보미는 있는데 그 달에 활동 기록(records.type = 'activity')이 하나도 없는 나무
 //   (이번 달이면 오늘까지의 기록으로 본다)
 // - 달은 한국 시간 달력 기준이다. 기록의 activity_date도 한국 날짜다.
@@ -16,7 +17,7 @@ export const CURRENT_MONTH_START_SQL = `date_trunc('month', now() AT TIME ZONE '
 
 /** 신청서 a가 monthStart(date) 달에 활동 기간이 걸친 승인된 돌보미인지 */
 export function activeCaregiverSql(a: string, monthStart: string): string {
-  return `(${a}.status = 'approved'
+  return `(${a}.status IN ('approved', 'ended')
     AND ${a}.period_start < (${monthStart} + interval '1 month')
     AND ${a}.period_end >= ${monthStart})`;
 }
