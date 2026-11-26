@@ -1271,6 +1271,97 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /organizations/{id}/sections:
+    get:
+      tags: [시민]
+      summary: 단체 관심 구간 목록 (단체 회원)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: 관심 구간 (추가한 순)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sections: { type: array, items: { $ref: '#/components/schemas/OrganizationSection' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [시민]
+      summary: 관심 구간 추가 (단체 관리자)
+      description: >-
+        구간은 자치구 + 길(나무의 노선명 → 동 → 자치구 중 있는 것, 시민 웹 Tree의 roadName ?? dong ?? district)이다.
+        가로수가 없는 구간은 404, 이미 있으면 409 SECTION_EXISTS, 단체당 20개를 넘으면 400 SECTION_LIMIT.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [district, place]
+              properties:
+                district: { type: string, example: 중구 }
+                place: { type: string, example: 소파로 }
+      responses:
+        '201':
+          description: 추가한 구간
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrganizationSection' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /organizations/{id}/sections/{sectionId}:
+    delete:
+      tags: [시민]
+      summary: 관심 구간 지우기 (단체 관리자)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: sectionId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '204': { description: 지움 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /organizations/{id}/section-report:
+    get:
+      tags: [시민]
+      summary: 단체 관심 구간 리포트 (단체 회원, 익명 합계)
+      description: >-
+        관심 구간의 모든 돌보미(단체 회원이 아니어도) 활동을 구간·나무 단위 익명 합계로 묶는다.
+        사람(이름·별명·id)·사진·메모는 담지 않는다(절대 규칙: 다른 참여자 신원은 익명 합계로만).
+        나무 상태는 관리 사각지대 정의와 같다: 돌보미 없음 / 활동 끊김(돌보미는 있는데 그 달 활동 없음) / 돌봄 중.
+        format=csv면 단체 이름이 든 엑셀용 CSV(UTF-8 BOM) 파일로 내려준다.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: month, in: query, required: true, schema: { type: string, example: 2026-11 }, description: YYYY-MM }
+        - { name: format, in: query, required: false, schema: { type: string, enum: [json, csv], default: json } }
+      responses:
+        '200':
+          description: 구간 리포트
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SectionReport' }
+            text/csv:
+              schema: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /volunteer-hours/me:
     get:
       tags: [시민]
@@ -1675,6 +1766,61 @@ components:
               minutes: { type: integer }
               count: { type: integer }
               treeCount: { type: integer }
+    OrganizationSection:
+      type: object
+      properties:
+        id: { type: integer }
+        district: { type: string, example: 중구 }
+        place: { type: string, example: 소파로 }
+        treeCount: { type: integer, description: 그 구간의 가로수 수 }
+        createdAt: { type: string, format: date-time }
+    SectionReport:
+      type: object
+      properties:
+        organization: { type: object, properties: { id: { type: integer }, name: { type: string } } }
+        month: { type: string, example: 2026-11 }
+        totals:
+          type: object
+          properties:
+            sectionCount: { type: integer }
+            treeCount: { type: integer }
+            activityCount: { type: integer }
+            minutes: { type: integer }
+            activityDays: { type: integer }
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              district: { type: string }
+              place: { type: string }
+              treeCount: { type: integer }
+              caredTreeCount: { type: integer, description: 그 달 승인된 돌보미가 있는 나무 }
+              inactiveTreeCount: { type: integer, description: 돌보미는 있는데 그 달 활동이 없는 나무 }
+              noCaregiverTreeCount: { type: integer, description: 돌보미가 없는 나무 }
+              caregiverCount: { type: integer, description: 그 달 돌보미 수 (한 사람이 여러 그루를 돌봐도 한 명) }
+              activityCount: { type: integer }
+              minutes: { type: integer }
+              activityDays: { type: integer }
+              reported: { type: integer, description: 그 달 접수된 신고 수 }
+              resolved: { type: integer, description: 그 달 조치 완료된 신고 수 }
+              trees:
+                type: array
+                description: 길 안 번호 순(서쪽부터)
+                items:
+                  type: object
+                  properties:
+                    treeId: { type: integer }
+                    name: { type: string, example: '은행나무, 소파로 3번' }
+                    status: { type: string, enum: [cared, inactive, no_caregiver], description: 돌봄 중 / 활동 끊김 / 돌보미 없음 }
+                    caregiverCount: { type: integer }
+                    activityCount: { type: integer }
+                    minutes: { type: integer }
+                    activityDays: { type: integer }
+                    lastActivityDate: { type: [string, 'null'], description: 그 달 마지막 활동일 }
+                    reported: { type: integer }
+                    resolved: { type: integer }
     TreeRings:
       type: object
       properties:
