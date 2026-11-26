@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { ApiError } from '../api/client';
 import {
   APPLICATION_STATUS_LABEL,
+  PARTICIPATION_TYPE_LABEL,
   getApplication,
   listApplications,
   reviewApplication,
@@ -176,10 +177,12 @@ function ApplicationDetail({ id, onReviewed }: { id: number; onReviewed: () => v
         <span className={`${ui.badge} ${BADGE[app.status]}`}>{APPLICATION_STATUS_LABEL[app.status]}</span>
       </div>
 
+      <ApplicantFacts app={app} />
+
       <dl className={ui.facts}>
         <dt>돌볼 나무</dt>
         <dd>
-          {app.tree.species} · 나무 #{app.tree.id}
+          {app.tree.species} · {app.tree.code ?? `나무 #${app.tree.id}`}
           <div className={ui.muted}>
             {[app.tree.district, app.tree.dong, app.tree.roadName].filter(Boolean).join(' ')}
             {app.tree.address && ` (${app.tree.address})`}
@@ -203,10 +206,13 @@ function ApplicationDetail({ id, onReviewed }: { id: number; onReviewed: () => v
 
       <div>
         <h3 className={ui.sectionTitle} style={{ marginBottom: 8 }}>
-          참여 동기
+          신청사유
         </h3>
         <p className={ui.quote}>{app.motivation || '적지 않았습니다.'}</p>
       </div>
+
+      {app.activityPlan && <LongText title="활동계획" text={app.activityPlan} />}
+      {app.organizationIntro && <LongText title="기업·단체 소개" text={app.organizationIntro} />}
 
       {app.rejectReason && (
         <div>
@@ -263,6 +269,46 @@ function ApplicationDetail({ id, onReviewed }: { id: number; onReviewed: () => v
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+/** 신청인 정보 (구청 신청서 양식 항목, #68). 신청서·연락처는 개인정보라 구청 담당자 화면에서만 보여 준다 */
+function ApplicantFacts({ app }: { app: Application }) {
+  if (app.applicantName === null) {
+    return <p className={ui.hint}>신청서 양식 항목이 생기기 전에 낸 신청서라 신청인 정보가 없습니다.</p>;
+  }
+  return (
+    <dl className={ui.facts}>
+      <dt>신청인</dt>
+      <dd>{app.applicantName}</dd>
+      <dt>참여 유형</dt>
+      <dd>{app.participationType ? PARTICIPATION_TYPE_LABEL[app.participationType] : '-'}</dd>
+      {app.contactPerson && (
+        <>
+          <dt>담당자</dt>
+          <dd>{app.contactPerson}</dd>
+        </>
+      )}
+      <dt>신청 인원</dt>
+      <dd>{app.headcount !== null ? `${app.headcount}명` : '-'}</dd>
+      <dt>연락처</dt>
+      <dd>{app.phone ?? '-'}</dd>
+      <dt>주소</dt>
+      <dd>{app.address ? `${app.postalCode ? `(${app.postalCode}) ` : ''}${app.address}` : '-'}</dd>
+      <dt>안내 동의</dt>
+      <dd>{app.agreedAt ? `${formatDateTime(app.agreedAt)} 동의` : '-'}</dd>
+    </dl>
+  );
+}
+
+function LongText({ title, text }: { title: string; text: string }) {
+  return (
+    <div>
+      <h3 className={ui.sectionTitle} style={{ marginBottom: 8 }}>
+        {title}
+      </h3>
+      <p className={ui.quote}>{text}</p>
     </div>
   );
 }
