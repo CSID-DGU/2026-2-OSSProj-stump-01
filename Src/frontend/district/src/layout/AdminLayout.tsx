@@ -24,6 +24,7 @@ export function AdminLayout() {
       label: '신고 처리',
       count: data ? data.incidentReports.pending + data.incidentReports.inspecting : undefined,
     },
+    { to: '/exports', label: '상부 보고', count: null },
   ];
 
   return (
