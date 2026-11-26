@@ -53,19 +53,14 @@ DB 적재(`--load`):
 - `--load`는 `(date, region)` 기준 upsert다. 기상청이 지난 값을 고치는 경우가 있어 같은 날짜는 새 값으로 덮어쓴다.
 - 기상청은 전날 자료까지만 준다. 그래서 오늘 날씨(홈 화면)는 API 서버가 단기예보·특보로 따로 받고(`GET /weather/today`, #72), 이 스크립트는 나이테용 일자료만 쌓는다.
 
-### 매일 수집 (#72)
+### 매일 수집
 
-하루 한 번 최근 3일을 받아 넣는다. 기상청이 지난 값을 고치는 경우가 있어 하루만이 아니라 3일을 덮어쓴다.
+API 서버(`npm run dev`, `npm start`)가 켜져 있으면 서버가 알아서 받는다(`district/weather-daily.ts`). 따로 crontab을 걸 필요가 없다.
 
-```bash
-.venv/bin/python weather.py --days 3 --out raw/weather_daily.csv --load
-```
-
-내 컴퓨터에서 매일 돌리려면 crontab에 등록한다(`crontab -e`, 매일 오전 9시). 배포 서버가 정해지면 서버의 스케줄러로 옮긴다.
-
-```
-0 9 * * * cd <저장소 경로>/Src/backend/data && .venv/bin/python weather.py --days 3 --out raw/weather_daily.csv --load >> raw/weather_daily.log 2>&1
-```
+- 서버가 켜질 때 한 번, 그 뒤 6시간마다 어제까지 최근 3일을 받아 덮어쓴다. 기상청이 지난 값을 고치는 경우가 있어 하루만 받지 않는다.
+- 서버가 꺼져 있던 동안 빈 날이 있으면, 최근 31일 안에서 가장 이른 빈 날부터 받는다.
+- `Src/.env`에 `KMA_SERVICE_KEY`가 없으면 건너뛴다. 서버 로그에 `[기상 수집]`으로 결과가 찍힌다.
+- 31일보다 오래 빈 기간이나 과거 몇 년치는 위의 `weather.py --start --end --load`로 채운다. 규칙(강수량 빈 값 0, 33℃ 이상 폭염, 같은 날짜 덮어쓰기)은 둘이 같다.
 
 ## 출처
 
