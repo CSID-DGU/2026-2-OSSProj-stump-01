@@ -57,7 +57,7 @@ export const PARTICIPATION_TYPE_LABEL: Record<ParticipationType, string> = {
   other: '기타',
 };
 
-export function listApplications(opts: { status: ApplicationStatus; limit: number; offset: number }) {
+export function listApplications(opts: { status: ApplicationStatus; limit: number; offset: number; organizationId?: number | null }) {
   return api<Page<Application>>('/admin/applications', { query: opts });
 }
 

@@ -1,4 +1,4 @@
-// 목록 화면의 상태 탭·쪽(offset)·선택한 항목을 주소(?status=&offset=&id=)에 둔다.
+// 목록 화면의 상태 탭·쪽(offset)·선택한 항목·단체를 주소(?status=&offset=&id=&organizationId=)에 둔다.
 // 새로고침하거나 주소를 공유해도 같은 화면이 열린다.
 import { useEffect, type KeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -12,13 +12,20 @@ export function useListParams<T extends string>(statuses: readonly T[], defaultS
   const offset = Number.isInteger(rawOffset) && rawOffset > 0 ? rawOffset : 0;
   const rawId = Number(params.get('id'));
   const selectedId = Number.isInteger(rawId) && rawId > 0 ? rawId : null;
+  const rawOrg = Number(params.get('organizationId'));
+  const organizationId = Number.isInteger(rawOrg) && rawOrg > 0 ? rawOrg : null; // 잘못된 값이면 전체
 
-  function update(next: { status?: T; offset?: number; id?: number | null }) {
+  function update(next: { status?: T; offset?: number; id?: number | null; organizationId?: number | null }) {
     const p = new URLSearchParams(params);
     const set = (key: string, value: string | null) => (value ? p.set(key, value) : p.delete(key));
     if (next.status !== undefined) {
       set('status', next.status === defaultStatus ? null : next.status);
       p.delete('offset'); // 탭을 바꾸면 첫 쪽부터
+      p.delete('id');
+    }
+    if (next.organizationId !== undefined) {
+      set('organizationId', next.organizationId ? String(next.organizationId) : null);
+      p.delete('offset'); // 단체를 바꾸면 첫 쪽부터
       p.delete('id');
     }
     if (next.offset !== undefined) set('offset', next.offset ? String(next.offset) : null);
@@ -30,7 +37,9 @@ export function useListParams<T extends string>(statuses: readonly T[], defaultS
     status,
     offset,
     selectedId,
+    organizationId,
     setStatus: (s: T) => update({ status: s }),
+    setOrganization: (id: number | null) => update({ organizationId: id }),
     setOffset: (o: number) => update({ offset: o }),
     select: (id: number | null) => update({ id }),
   };
