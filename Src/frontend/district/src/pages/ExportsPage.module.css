@@ -1,0 +1,47 @@
+/* 상부 보고 화면(#78) */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.section {
+  background: var(--color-surface);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  font-size: var(--text-sm);
+}
+
+.totalRow td {
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-text);
+}
+
+.hoursInput {
+  width: 96px;
+}
