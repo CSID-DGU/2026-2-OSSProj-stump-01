@@ -95,6 +95,8 @@ export default function RecordNewPage() {
   if (mode === 'activity') {
     if (activities.length === 0) missing.push('한 일')
     if (minutes.length === 0) missing.push('활동 시간')
+    // 기록 검증(#13): 나무 근처 위치가 확인되지 않으면 사진이 필요하다. 거리는 서버가 확인한다
+    if (!location && photos.length === 0) missing.push('사진 또는 현장 위치')
   } else {
     if (reportType.length === 0) missing.push('신고 유형')
     if (photos.length === 0) missing.push('사진')
@@ -109,8 +111,10 @@ export default function RecordNewPage() {
   }
 
   function findMyLocation() {
+    // 위치를 못 쓸 때: 신고는 나무 위치로 보내고, 활동 기록은 사진으로 확인한다(#13)
+    const fallback = mode === 'activity' ? '나무 사진을 올려 주세요.' : '나무 위치로 보낼게요.'
     if (!('geolocation' in navigator)) {
-      setLocationMessage('이 브라우저는 위치를 알려 주지 않아요. 나무 위치로 보낼게요.')
+      setLocationMessage(`이 브라우저는 위치를 알려 주지 않아요. ${fallback}`)
       return
     }
     setLocating(true)
@@ -122,7 +126,7 @@ export default function RecordNewPage() {
       },
       () => {
         setLocating(false)
-        setLocationMessage('위치를 가져오지 못했어요. 나무 위치로 보낼게요.')
+        setLocationMessage(`위치를 가져오지 못했어요. ${fallback}`)
       },
       { enableHighAccuracy: true, timeout: 10000 },
     )
@@ -136,7 +140,15 @@ export default function RecordNewPage() {
       const files = photos.map((p) => p.file)
       const record =
         mode === 'activity'
-          ? await api.createRecord({ type: 'activity', treeId: tree.id, activityKinds: activities, durationMin: minutes[0], memo: note.trim(), photos: files })
+          ? await api.createRecord({
+              type: 'activity',
+              treeId: tree.id,
+              activityKinds: activities,
+              durationMin: minutes[0],
+              memo: note.trim(),
+              photos: files,
+              ...(location && { lat: location.lat, lng: location.lng, accuracy: location.accuracy }), // 나무 근처 확인에만 쓰고 서버가 저장하지 않는다
+            })
           : await api.createRecord({
               type: 'report',
               treeId: tree.id,
@@ -220,7 +232,32 @@ export default function RecordNewPage() {
                 <>
                   <ChoiceGroup label="한 일 (여러 개 고를 수 있어요)" options={ACTIVITY_OPTIONS} selected={activities} onChange={setActivities} multiple />
                   <ChoiceGroup label="활동 시간" options={DURATION_OPTIONS} selected={minutes} onChange={setMinutes} format={formatMinutes} />
-                  <PhotoPicker label="사진" photos={photos} onChange={setPhotos} max={MAX_PHOTOS} help="사진이 있는 기록만 활동 순위에 들어가요." />
+                  <div className="tc-field">
+                    <span className="tc-field__label">현장 확인</span>
+                    <div className="tc-rows">
+                      <div className="tc-row">
+                        <span>{location ? '내 위치' : '위치 확인 전'}</span>
+                        <span className="tc-row__value">{location ? `오차 약 ${location.accuracy}m` : '사진으로 대신할 수 있어요'}</span>
+                      </div>
+                    </div>
+                    {!location && (
+                      <div className="tc-choices__list field-only">
+                        <button type="button" className="tc-choice" onClick={findMyLocation} disabled={locating}>
+                          {locating ? '위치 찾는 중' : '나무 앞에서 위치 확인하기'}
+                        </button>
+                      </div>
+                    )}
+                    <span className="tc-field__help">
+                      {locationMessage || '나무 30m 안에서 위치가 확인되면 사진 없이도 저장돼요. 위치는 확인에만 쓰고 저장하지 않아요.'}
+                    </span>
+                  </div>
+                  <PhotoPicker
+                    label={location ? '사진 (선택)' : '사진 (위치 확인을 안 하면 꼭 필요해요)'}
+                    photos={photos}
+                    onChange={setPhotos}
+                    max={MAX_PHOTOS}
+                    help="사진이 있는 기록만 활동 순위에 들어가요."
+                  />
                 </>
               ) : (
                 <>
@@ -293,6 +330,7 @@ function recordErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 403) return '이 나무의 승인된 돌보미만 활동을 기록할 수 있어요. 활동 기간도 확인해 주세요.'
     if (err.status === 400 && err.code === 'UPLOAD_ERROR') return '사진을 올리지 못했어요. jpg·png·webp·heic 사진을 한 장 10MB 이하로 올려 주세요.'
+    if (err.status === 400 && err.code === 'PHOTO_REQUIRED') return '나무 근처에서 위치가 확인되지 않았어요. 나무 사진을 한 장 이상 올려 주세요.'
     if (err.status === 400) return '입력한 내용을 다시 확인해 주세요.'
     if (err.status === 0) return err.message
   }

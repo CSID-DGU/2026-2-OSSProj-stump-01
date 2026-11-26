@@ -771,6 +771,9 @@ paths:
       description: |
         multipart/form-data 로 보낸다. 사진은 photos 칸으로 3장까지(jpg·png·webp·heic, 한 장 10MB). 시민 계정만 쓸 수 있다.
         - type=activity: 그 나무에 승인된 돌보미이고 오늘이 활동 기간 안이어야 한다(아니면 403). 활동일은 서버가 오늘(한국 시간)로 정한다.
+          기록 검증(#13): 보낸 lat·lng가 나무에서 30m 안이고 accuracy(위치 오차)가 30m 이하(안 보내면 따지지 않음)면 verification=location,
+          아니면 사진이 1장 이상 있어야 하고(없으면 400 PHOTO_REQUIRED) verification=photo. 30m 두 값은 임시값(#59).
+          활동 기록의 lat·lng는 확인에만 쓰고 저장하지 않는다(location은 늘 null).
         - type=report: 로그인한 시민이면 누구나. '확인 필요'(pending)로 그 나무 관리청의 신고 처리 큐에 들어간다. 긴급도는 유형으로 정한다(leaning·broken_branch → high, 나머지 low).
         - 검증·권한에서 막히면 올린 사진은 지운다.
       security: [{ bearerAuth: [] }]
@@ -787,8 +790,9 @@ paths:
                 activityKinds: { type: array, items: { type: string, maxLength: 30 }, minItems: 1, maxItems: 5, description: "(activity) 한 일. 같은 이름으로 여러 번 보낸다. 쉼표 불가" }
                 durationMin: { type: integer, minimum: 1, maximum: 600, description: "(activity) 활동 시간(분)" }
                 category: { type: string, enum: [leaning, broken_branch, pest, withering, other], description: "(report) 신고 유형" }
-                lat: { type: number, description: "(report, 선택) 신고한 위치. lng 와 함께" }
+                lat: { type: number, description: "(선택) 내 위치. lng 와 함께. activity는 나무 근처 확인에만 쓰고 저장하지 않으며, report는 신고한 위치로 저장한다" }
                 lng: { type: number }
+                accuracy: { type: number, minimum: 0, description: "(activity, 선택) 휴대폰이 알려 준 위치 오차 반경(m). 30m보다 크면 위치 확인으로 치지 않는다" }
                 memo: { type: string, maxLength: 200, description: "짧은 글 (선택)" }
                 photos: { type: array, maxItems: 3, items: { type: string, format: binary } }
       responses:
@@ -798,7 +802,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Record' }
         '400':
-          description: 요청 값이 올바르지 않음 (사진 4장 이상·이미지 아님 포함). 칸별 사유는 error.issues
+          description: 요청 값이 올바르지 않음 (사진 4장 이상·이미지 아님 포함). 칸별 사유는 error.issues. 활동 기록인데 나무 근처 위치가 확인되지 않고 사진도 없으면 error.code = PHOTO_REQUIRED
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -1648,7 +1652,9 @@ components:
         photos: { type: array, items: { type: string, example: /uploads/2b1c-example.jpg }, description: 올린 순서대로 }
         location:
           type: [object, 'null']
+          description: 신고한 위치 (활동 기록은 위치를 저장하지 않아 늘 null)
           properties: { lat: { type: number }, lng: { type: number } }
+        verification: { type: string, enum: [none, location, photo], description: '기록 검증(#13): 위치 확인 / 사진 확인 / 없음(신고·이전 기록)' }
         monthlyReportId: { type: [integer, 'null'], description: 월간 보고서에 넣었으면 그 보고서 id }
         report:
           type: [object, 'null']

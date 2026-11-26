@@ -71,6 +71,15 @@ const report = (over: Fields = {}): Fields => ({
   ...over,
 });
 
+/** 나무 자리(위도·경도). north 미터만큼 북쪽으로 옮긴 위치를 준다 (위도 1° ≈ 111km) */
+async function spotNearTree(treeId: number, north = 0): Promise<Fields> {
+  const { rows } = await getPool().query<{ lat: number; lng: number }>(
+    'SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng FROM trees WHERE id = $1',
+    [treeId],
+  );
+  return { lat: String(rows[0]!.lat + north / 111_000), lng: String(rows[0]!.lng) };
+}
+
 async function countRecords(userId: number): Promise<number> {
   const { rows } = await getPool().query<{ count: number }>('SELECT count(*)::int FROM records WHERE user_id = $1', [userId]);
   return rows[0]!.count;
@@ -93,6 +102,7 @@ describe('POST /records (type=activity)', () => {
       memo: '낙엽이 많았어요',
       monthlyReportId: null,
       report: null,
+      verification: 'photo', // 위치를 안 보냈으니 사진으로 확인한 기록
       tree: { id: tree, name: '은행나무, 명동길' }, // 번호를 매기기 전이라 번호 없이
     });
     expect(res.body.photos).toHaveLength(2);
@@ -115,11 +125,64 @@ describe('POST /records (type=activity)', () => {
     expect(file.headers['content-type']).toContain('image/jpeg');
   });
 
-  it('사진 없이도 기록한다', async () => {
+  it('나무 근처(30m 안) 위치가 확인되면 사진 없이도 기록한다 (위치 확인)', async () => {
     await approveCaregiver(me.id, tree);
-    const res = await submit(activity());
+    const res = await submit(activity({ ...(await spotNearTree(tree, 20)), accuracy: '10' }));
     expect(res.status).toBe(201);
     expect(res.body.photos).toEqual([]);
+    expect(res.body.verification).toBe('location');
+  });
+
+  it('휴대폰 위치 오차가 30m보다 크면 가까워도 위치 확인으로 치지 않는다 (사진 필요)', async () => {
+    await approveCaregiver(me.id, tree);
+    const blurry = { ...(await spotNearTree(tree, 5)), accuracy: '45' };
+
+    const res = await submit(activity(blurry));
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('PHOTO_REQUIRED');
+    const withPhoto = await submit(activity(blurry), [photo()]);
+    expect(withPhoto.body.verification).toBe('photo');
+  });
+
+  it('위치를 안 보내면 사진이 있어야 한다: 없으면 400 PHOTO_REQUIRED 이고 저장하지 않는다 (#13)', async () => {
+    await approveCaregiver(me.id, tree);
+
+    const res = await submit(activity());
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('PHOTO_REQUIRED');
+    expect(await countRecords(me.id)).toBe(0);
+  });
+
+  it('위치가 나무에서 멀면(30m 밖) 사진이 있어야 하고, 사진이 있으면 사진 확인으로 남긴다', async () => {
+    await approveCaregiver(me.id, tree);
+    const far = await spotNearTree(tree, 40);
+
+    expect((await submit(activity(far))).status).toBe(400);
+    const withPhoto = await submit(activity(far), [photo()]);
+    expect(withPhoto.status).toBe(201);
+    expect(withPhoto.body.verification).toBe('photo');
+  });
+
+  it('위치가 확인되면 사진이 있어도 위치 확인으로 남긴다', async () => {
+    await approveCaregiver(me.id, tree);
+    const res = await submit(activity(await spotNearTree(tree)), [photo()]);
+    expect(res.body.verification).toBe('location');
+  });
+
+  it('활동 기록에는 내 위치 좌표를 저장하지 않는다 (확인 결과만 남긴다)', async () => {
+    await approveCaregiver(me.id, tree);
+    const res = await submit(activity(await spotNearTree(tree)));
+
+    const { rows } = await getPool().query('SELECT location, verification FROM records WHERE id = $1', [res.body.id]);
+    expect(rows[0]).toEqual({ location: null, verification: 'location' });
+    expect(res.body.location).toBeNull();
+  });
+
+  it('위도·경도는 함께 보내야 한다 (하나만 보내면 400), 정확도가 음수면 400', async () => {
+    await approveCaregiver(me.id, tree);
+    expect((await submit(activity({ lat: '37.56' }), [photo()])).status).toBe(400);
+    expect((await submit(activity({ ...(await spotNearTree(tree)), accuracy: '-1' }), [photo()])).status).toBe(400);
   });
 
   it('승인되지 않은(대기 중) 돌보미는 403이고 저장하지 않는다', async () => {
@@ -243,7 +306,7 @@ describe('GET /records/me', () => {
   it('이번 달 내 기록을 최신순으로, 신고는 처리 상태와 함께 준다', async () => {
     await approveCaregiver(me.id, tree);
     const other = await createUser();
-    const act = await submit(activity());
+    const act = await submit(activity(), [photo()]);
     const rep = await submit(report());
     await submit(report(), [], other.token);
     // 지난달 기록은 이번 달 목록에 안 나온다
