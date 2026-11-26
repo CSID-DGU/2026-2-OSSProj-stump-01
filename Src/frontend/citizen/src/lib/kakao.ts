@@ -16,6 +16,17 @@ export interface KakaoMap {
 export interface KakaoOverlay {
   setMap(map: KakaoMap | null): void;
 }
+// 미터 단위 원 (확대하면 같이 커진다). 내 위치 오차 반경을 그린다.
+export interface KakaoCircleOptions {
+  center: KakaoLatLng;
+  radius: number; // m
+  strokeWeight?: number;
+  strokeColor?: string;
+  strokeOpacity?: number;
+  fillColor?: string;
+  fillOpacity?: number;
+  zIndex?: number;
+}
 export interface KakaoSdk {
   maps: {
     load(cb: () => void): void;
@@ -23,6 +34,7 @@ export interface KakaoSdk {
     Map: new (el: HTMLElement, opts: { center: KakaoLatLng; level: number }) => KakaoMap;
     // 화면 픽셀 크기가 고정된 HTML 요소를 좌표에 붙인다. 나무 점에 쓴다.
     CustomOverlay: new (opts: { position: KakaoLatLng; content: HTMLElement; xAnchor?: number; yAnchor?: number; zIndex?: number; clickable?: boolean }) => KakaoOverlay;
+    Circle: new (opts: KakaoCircleOptions) => KakaoOverlay;
     ZoomControl: new () => unknown;
     ControlPosition: { RIGHT: unknown; TOPRIGHT: unknown };
     event: {
