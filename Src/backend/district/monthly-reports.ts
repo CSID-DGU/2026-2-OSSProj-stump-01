@@ -8,6 +8,7 @@ import { officerOf } from '../common/auth.js';
 import { getPool, withTransaction, type Db } from '../common/db.js';
 import { conflict, notFound } from '../common/errors.js';
 import { createNotification } from '../common/notifications.js';
+import { findOrganization, memberOfSql, organizationIdQuery } from './organization-filter.js';
 
 // ── 기준값 ──
 const DEFAULT_PAGE_SIZE = 50;
@@ -22,6 +23,7 @@ const listQuery = z.object({
   status: z.enum(REPORT_STATUSES).default('submitted'),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   offset: z.coerce.number().int().min(0).default(0),
+  organizationId: organizationIdQuery, // 그 단체 회원의 보고서만
 });
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -170,21 +172,21 @@ export const monthlyReportsRouter = Router();
 // 목록: 검토 대기(submitted)는 오래 기다린 순, 나머지는 최근 순
 monthlyReportsRouter.get('/', async (req, res) => {
   const { agency } = officerOf(req);
-  const { status, limit, offset } = listQuery.parse(req.query);
+  const { status, limit, offset, organizationId } = listQuery.parse(req.query);
   const order = status === 'submitted' ? 'm.submitted_at ASC, m.id ASC' : 'm.submitted_at DESC, m.id DESC';
 
   const pool = getPool();
+  await findOrganization(pool, organizationId); // 없는 단체면 404
+  const org = organizationId ?? null;
   const [{ rows }, total] = await Promise.all([
-    pool.query<ReportRow>(`${SELECT_REPORT} AND m.status = $2 ORDER BY ${order} LIMIT $3 OFFSET $4`, [
-      agency,
-      status,
-      limit,
-      offset,
-    ]),
-    pool.query<{ count: number }>('SELECT count(*) FROM monthly_reports WHERE agency = $1 AND status = $2', [
-      agency,
-      status,
-    ]),
+    pool.query<ReportRow>(
+      `${SELECT_REPORT} AND m.status = $2 AND ${memberOfSql('m.user_id', '$5')} ORDER BY ${order} LIMIT $3 OFFSET $4`,
+      [agency, status, limit, offset, org],
+    ),
+    pool.query<{ count: number }>(
+      `SELECT count(*) FROM monthly_reports m WHERE m.agency = $1 AND m.status = $2 AND ${memberOfSql('m.user_id', '$3')}`,
+      [agency, status, org],
+    ),
   ]);
   res.json({ items: rows.map(toSummary), total: total.rows[0]!.count, limit, offset });
 });

@@ -42,6 +42,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [pending, approved, rejected, ended], default: pending } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: organizationId, in: query, description: 그 단체 회원 것만(없으면 전체). 없는 단체는 404, schema: { type: integer } }
       responses:
         '200':
           description: 신청 목록
@@ -57,6 +58,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/applications/{id}:
     parameters:
@@ -121,6 +123,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [submitted, approved, revision_requested], default: submitted } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: organizationId, in: query, description: 그 단체 회원 것만(없으면 전체). 없는 단체는 404, schema: { type: integer } }
       responses:
         '200':
           description: 보고서 목록
@@ -136,6 +139,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/monthly-reports/{id}:
     parameters:
@@ -417,6 +421,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [requested, approved, rejected, received], default: requested } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: organizationId, in: query, description: 그 단체 회원 것만(없으면 전체). 없는 단체는 404, schema: { type: integer } }
       responses:
         '200':
           description: 신청 목록
@@ -432,6 +437,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/rentals/{id}:
     patch:
@@ -489,6 +495,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [unresolved, pending, inspecting, resolved], default: unresolved } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+        - { name: organizationId, in: query, description: 그 단체 회원 것만(없으면 전체). 없는 단체는 404, schema: { type: integer } }
       responses:
         '200':
           description: 신고 목록
@@ -504,6 +511,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/incident-reports/{id}:
     parameters:

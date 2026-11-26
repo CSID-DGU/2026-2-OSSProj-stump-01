@@ -10,6 +10,7 @@ import { officerOf } from '../common/auth.js';
 import { getPool, withTransaction, type Db } from '../common/db.js';
 import { badRequest, conflict, notFound } from '../common/errors.js';
 import { createNotification } from '../common/notifications.js';
+import { findOrganization, memberOfSql, organizationIdQuery } from './organization-filter.js';
 
 // ── 기준값 ──
 const DEFAULT_PAGE_SIZE = 50;
@@ -35,6 +36,7 @@ const listQuery = z.object({
   status: z.enum(['unresolved', ...INCIDENT_STATUSES]).default('unresolved'),
   limit: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
   offset: z.coerce.number().int().min(0).default(0),
+  organizationId: organizationIdQuery, // 그 단체 회원이 낸 신고만
 });
 
 const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -173,14 +175,23 @@ export const incidentReportsRouter = Router();
 // 목록: 미처리(확인 필요·현장 확인)는 오래 기다린 순(경과일순), 조치 완료는 최근 완료 순
 incidentReportsRouter.get('/', async (req, res) => {
   const { agency } = officerOf(req);
-  const { status, limit, offset } = listQuery.parse(req.query);
+  const { status, limit, offset, organizationId } = listQuery.parse(req.query);
   const where = status === 'unresolved' ? `p.status <> 'resolved'` : `p.status = '${status}'`; // status는 zod enum으로 검증된 값
   const order = status === 'resolved' ? 'p.resolved_at DESC, p.id DESC' : 'p.created_at ASC, p.id ASC';
 
   const pool = getPool();
+  await findOrganization(pool, organizationId); // 없는 단체면 404
+  const org = organizationId ?? null;
   const [{ rows }, total] = await Promise.all([
-    pool.query(`${SELECT_INCIDENT} AND ${where} ORDER BY ${order} LIMIT $2 OFFSET $3`, [agency, limit, offset]),
-    pool.query<{ count: number }>(`SELECT count(*) FROM reports p WHERE p.agency = $1 AND ${where}`, [agency]),
+    pool.query(
+      `${SELECT_INCIDENT} AND ${where} AND ${memberOfSql('rc.user_id', '$4')} ORDER BY ${order} LIMIT $2 OFFSET $3`,
+      [agency, limit, offset, org],
+    ),
+    pool.query<{ count: number }>(
+      `SELECT count(*) FROM reports p JOIN records rc ON rc.id = p.record_id
+       WHERE p.agency = $1 AND ${where} AND ${memberOfSql('rc.user_id', '$2')}`,
+      [agency, org],
+    ),
   ]);
   res.json({ items: rows.map(toView), total: total.rows[0]!.count, limit, offset });
 });

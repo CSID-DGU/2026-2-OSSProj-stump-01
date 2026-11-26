@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { officerOf } from '../common/auth.js';
 import { getPool, type Db } from '../common/db.js';
 import { countCareGaps } from './care-gaps.js';
+import { memberOfSql, organizationIdQuery } from './organization-filter.js';
 
 // ── 기준값 ──
 const TIME_ZONE = 'Asia/Seoul'; // "이달"은 한국 시간 달력 기준
@@ -16,7 +17,7 @@ const query = z.object({
     .string()
     .regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'YYYY-MM 형식')
     .optional(),
-  organizationId: z.coerce.number().int().positive().optional(),
+  organizationId: organizationIdQuery,
 });
 
 /** 지금 한국 시간 기준 'YYYY-MM' */
@@ -54,8 +55,7 @@ export async function loadDashboard(
   // $1 관리청, $2 단체 id(없으면 null), $3 달의 첫날
   const params = [opts.agency, orgId, `${opts.month}-01`];
   // 사용자 컬럼이 단체 회원인지 확인하는 조건. 단체 필터가 없으면 항상 참이다.
-  const inOrg = (userCol: string) =>
-    `($2::bigint IS NULL OR EXISTS (SELECT 1 FROM organization_members om WHERE om.organization_id = $2 AND om.user_id = ${userCol}))`;
+  const inOrg = (userCol: string) => memberOfSql(userCol, '$2');
   // 이달 범위(한국 시간)를 timestamptz로
   const monthStart = `($3::date::timestamp AT TIME ZONE '${TIME_ZONE}')`;
   const monthEnd = `(($3::date + interval '1 month')::timestamp AT TIME ZONE '${TIME_ZONE}')`;
