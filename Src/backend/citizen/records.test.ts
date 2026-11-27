@@ -113,6 +113,28 @@ describe('POST /records (type=activity)', () => {
     // 구청 화면이 읽는 records.photo_url 에는 첫 사진이 들어간다
     const { rows } = await getPool().query('SELECT photo_url FROM records WHERE id = $1', [res.body.id]);
     expect(rows[0].photo_url).toBe(res.body.photos[0]);
+    // 참여 보상(#15): 고마워요 반응과 스탬프
+    expect(res.body.reward).toMatchObject({ stamps: 1, newBadges: [] });
+    expect(res.body.reward.thanks).toContain('고마워요');
+  });
+
+  it('5번째 활동 기록이면 배지를 주고, 한 번 받은 배지는 다시 주지 않는다 (#15)', async () => {
+    await approveCaregiver(me.id, tree);
+    for (let i = 0; i < 4; i++) {
+      await getPool().query(`INSERT INTO records (tree_id, user_id, type, activity_date, duration_min) VALUES ($1, $2, 'activity', $3, 30)`, [
+        tree,
+        me.id,
+        seoulDate(-1 - i),
+      ]);
+    }
+
+    const fifth = await submit(activity(), [photo()]);
+    expect(fifth.body.reward).toMatchObject({ stamps: 5, newBadges: [{ code: 'caregiver_5', stamps: 5 }] });
+
+    const sixth = await submit(activity(), [photo()]);
+    expect(sixth.body.reward).toMatchObject({ stamps: 6, newBadges: [] });
+    const { rows } = await getPool().query('SELECT badge_code FROM user_badges WHERE user_id = $1', [me.id]);
+    expect(rows).toEqual([{ badge_code: 'caregiver_5' }]);
   });
 
   it('올린 사진은 /uploads 주소로 내려받을 수 있다', async () => {
@@ -257,6 +279,7 @@ describe('POST /records (type=report)', () => {
       memo: '바람에 기울었어요',
       location: { lat: 37.5601, lng: 126.9701 },
       report: { category: 'leaning', urgency: 'high', status: 'pending' },
+      reward: null, // 신고는 스탬프를 주지 않는다 (#15)
     });
 
     const queue = await request(api).get('/admin/incident-reports').set(auth(officer.token));
