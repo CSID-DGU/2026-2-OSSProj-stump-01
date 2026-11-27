@@ -18,14 +18,34 @@ export async function resetData(): Promise<void> {
   `);
 }
 
-export async function createUser(opts: { role?: 'citizen' | 'officer'; agency?: string | null; nickname?: string } = {}) {
+/**
+ * 사용자를 만든다. 시민은 기본으로 본인인증·주소까지 마친 상태다(verified: false면 본인인증 전 계정).
+ * 구청 담당자는 본인인증 칸이 비어 있다.
+ */
+export async function createUser(
+  opts: { role?: 'citizen' | 'officer'; agency?: string | null; nickname?: string; verified?: boolean } = {},
+) {
   seq += 1;
   const role = opts.role ?? 'citizen';
   const agency = opts.agency ?? (role === 'officer' ? '중구' : null);
+  const verified = role === 'citizen' && (opts.verified ?? true);
   const { rows } = await getPool().query<{ id: number }>(
-    `INSERT INTO users (email, password_hash, nickname, real_name, role, agency)
-     VALUES ($1, 'x', $2, $3, $4, $5) RETURNING id`,
-    [`user${seq}@test.local`, opts.nickname ?? `사용자${seq}`, `실명${seq}`, role, agency],
+    `INSERT INTO users (email, password_hash, nickname, real_name, role, agency,
+                        birth_date, phone, postal_code, address, identity_ci_hash, identity_verified_at)
+     VALUES ($1, 'x', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+    [
+      `user${seq}@test.local`,
+      opts.nickname ?? `사용자${seq}`,
+      `실명${seq}`,
+      role,
+      agency,
+      verified ? '1990-01-01' : null,
+      verified ? `010-0000-${String(seq).padStart(4, '0')}` : null,
+      verified ? '04538' : null,
+      verified ? '서울특별시 중구 명동길 1' : null,
+      verified ? `test-ci-${seq}` : null,
+      verified ? new Date() : null,
+    ],
   );
   const id = rows[0]!.id;
   return { id, token: signToken(id) };
