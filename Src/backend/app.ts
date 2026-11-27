@@ -16,6 +16,7 @@ import { notificationsRouter } from './citizen/notifications.js';
 import { recordsRouter } from './citizen/records.js';
 import { organizationSectionsRouter } from './citizen/organization-sections.js';
 import { organizationsRouter } from './citizen/organizations.js';
+import { meRewardsRouter, rankingsRouter } from './citizen/rankings.js';
 import { meRouter, storyReactionsRouter } from './citizen/reactions.js';
 import { citizenRentalItemsRouter, citizenRentalsRouter } from './citizen/rentals.js';
 import { treeRingsRouter } from './citizen/rings.js';
@@ -51,6 +52,8 @@ export function createApp() {
   app.use('/story-entries', storyEntriesRouter); // #64 이야기 글 하나 (로그인 없음)
   app.use('/story-entries', storyReactionsRouter); // #65 QR 호응 남기기 (로그인 없음)
   app.use('/me', meRouter); // #65 내가 받은 호응
+  app.use('/me', meRewardsRouter); // #15 내 활동 통계·배지·순위 켜기/끄기
+  app.use('/rankings', rankingsRouter); // #15 활동 순위·공식 순위·이달의 MVP
   app.use('/organizations', organizationsRouter); // #66 단체 계정·단체 리포트
   app.use('/organizations', organizationSectionsRouter); // #143 단체 관심 구간·구간 리포트
   app.use('/notifications', notificationsRouter); // #7 알림

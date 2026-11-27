@@ -13,6 +13,7 @@ import { getPool, withTransaction } from '../common/db.js';
 import { HttpError, notFound } from '../common/errors.js';
 import { treeNameSql } from '../common/tree-name.js';
 import { photoUpload, photoUrl, removeUploadedFiles, uploadedFiles } from '../common/uploads.js';
+import { awardStamps, THANKS_MESSAGE, type BadgeView } from './rewards.js';
 
 // ── 기준값 (구청 보고서 양식 확인 전 임시값, #59) ──
 const MAX_ACTIVITY_KINDS = 5; // 한 기록의 '한 일' 개수
@@ -123,6 +124,10 @@ export type RecordView = {
   tree: { id: number; code: string | null; name: string; species: string; district: string; dong: string | null; roadName: string | null };
 };
 
+// 기록을 만든 응답에만 붙는 참여 보상(#15). 활동 기록이면 고마워요 반응·스탬프 수·새로 받은 배지, 신고면 null
+export type RecordReward = { thanks: string; stamps: number; newBadges: BadgeView[] };
+export type RecordCreatedView = RecordView & { reward: RecordReward | null };
+
 // 생성 응답과 내 기록 목록이 같은 모양을 쓰도록 SELECT를 하나로 둔다. $1 = 기록한 시민
 const SELECT_MY_RECORD = `
   SELECT r.id, r.type, r.recorded_at, r.activity_date, r.activity_kind, r.duration_min, r.memo, r.monthly_report_id, r.verification,
@@ -190,8 +195,9 @@ recordsRouter.post('/', photoUpload(), async (req, res) => {
     const body = recordBody.parse(req.body);
     const photos = uploadedFiles(req).map(photoUrl);
 
-    const recordId = await withTransaction(async (db) => {
+    const { recordId, reward } = await withTransaction(async (db) => {
       let id: number;
+      let reward: RecordReward | null = null;
       if (body.type === 'activity') {
         const today = seoulToday();
         const { rowCount } = await db.query(
@@ -223,6 +229,8 @@ recordsRouter.post('/', photoUpload(), async (req, res) => {
           [body.treeId, userId, today, body.activityKinds.join(KIND_SEPARATOR), body.durationMin, body.memo, photos[0] ?? null, verification],
         );
         id = rows[0]!.id;
+        // 같은 트랜잭션: 스탬프를 세고 5·10회 배지를 준다(#15)
+        reward = { thanks: THANKS_MESSAGE, ...(await awardStamps(db, userId)) };
       } else {
         const { rows: trees } = await db.query<{ agency: string }>('SELECT agency FROM trees WHERE id = $1', [body.treeId]);
         if (!trees[0]) throw notFound('나무를 찾을 수 없다.');
@@ -246,11 +254,12 @@ recordsRouter.post('/', photoUpload(), async (req, res) => {
       for (const [i, url] of photos.entries()) {
         await db.query('INSERT INTO record_photos (record_id, url, position) VALUES ($1, $2, $3)', [id, url, i + 1]);
       }
-      return id;
+      return { recordId: id, reward };
     });
 
     const { rows } = await getPool().query<RecordRow>(`${SELECT_MY_RECORD} AND r.id = $2`, [userId, recordId]);
-    res.status(201).json(toView(rows[0]!));
+    const view: RecordCreatedView = { ...toView(rows[0]!), reward };
+    res.status(201).json(view);
   } catch (err) {
     await removeUploadedFiles(req);
     throw err;

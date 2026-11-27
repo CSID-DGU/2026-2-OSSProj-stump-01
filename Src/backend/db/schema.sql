@@ -686,6 +686,7 @@ CREATE TABLE public.users (
     address text,
     identity_ci_hash text,
     identity_verified_at timestamp with time zone,
+    ranking_hidden boolean DEFAULT false NOT NULL,
     CONSTRAINT users_officer_has_agency CHECK (((role <> 'officer'::text) OR (agency IS NOT NULL))),
     CONSTRAINT users_role_check CHECK ((role = ANY (ARRAY['citizen'::text, 'officer'::text])))
 );
@@ -1450,4 +1451,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20261120150000'),
     ('20261124140000'),
     ('20261126120000'),
-    ('20261126190000');
+    ('20261126190000'),
+    ('20261128120000');

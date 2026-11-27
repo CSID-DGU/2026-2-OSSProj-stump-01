@@ -119,11 +119,18 @@ export async function createApplication(opts: {
 }
 
 /** 활동 기록 하나를 만든다(records.type = 'activity') */
-export async function createActivity(opts: { userId: number; treeId: number; date: string; minutes?: number }) {
+export async function createActivity(opts: {
+  userId: number;
+  treeId: number;
+  date: string;
+  minutes?: number;
+  verification?: 'none' | 'location' | 'photo'; // 기본 'none' (DB 기본값)
+  recordedAt?: string; // 기록한 시각. 기본 지금
+}) {
   const { rows } = await getPool().query<{ id: number }>(
-    `INSERT INTO records (tree_id, user_id, type, activity_date, duration_min)
-     VALUES ($1, $2, 'activity', $3, $4) RETURNING id`,
-    [opts.treeId, opts.userId, opts.date, opts.minutes ?? 30],
+    `INSERT INTO records (tree_id, user_id, type, activity_date, duration_min, verification, recorded_at)
+     VALUES ($1, $2, 'activity', $3, $4, COALESCE($5, 'none'), COALESCE($6::timestamptz, now())) RETURNING id`,
+    [opts.treeId, opts.userId, opts.date, opts.minutes ?? 30, opts.verification ?? null, opts.recordedAt ?? null],
   );
   return rows[0]!.id;
 }
