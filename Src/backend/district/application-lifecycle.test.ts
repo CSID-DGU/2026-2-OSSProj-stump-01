@@ -57,11 +57,7 @@ describe('endExpiredApplications', () => {
       request(api).post('/applications').set(auth(citizen.token)).send({
         treeIds: [tree],
         periodStart: '2030-03-01',
-        applicantName: '김돌봄',
         headcount: 1,
-        postalCode: '04538',
-        address: '서울특별시 중구 명동길 1',
-        phone: '010-1234-5678',
         participationType: 'individual',
         motivation: '한 해 더 돌보고 싶어요',
         activityPlan: '주 2회 물 주기',
