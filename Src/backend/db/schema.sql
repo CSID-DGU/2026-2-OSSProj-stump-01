@@ -680,6 +680,12 @@ CREATE TABLE public.users (
     agency text,
     education_completed_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    birth_date date,
+    phone text,
+    postal_code character(5),
+    address text,
+    identity_ci_hash text,
+    identity_verified_at timestamp with time zone,
     CONSTRAINT users_officer_has_agency CHECK (((role <> 'officer'::text) OR (agency IS NOT NULL))),
     CONSTRAINT users_role_check CHECK ((role = ANY (ARRAY['citizen'::text, 'officer'::text])))
 );
@@ -1179,6 +1185,13 @@ CREATE INDEX trees_section_idx ON public.trees USING btree (district, COALESCE(r
 
 
 --
+-- Name: users_identity_ci_hash_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX users_identity_ci_hash_key ON public.users USING btree (identity_ci_hash) WHERE (identity_ci_hash IS NOT NULL);
+
+
+--
 -- Name: volunteer_hours_user_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1436,4 +1449,5 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20261120120000'),
     ('20261120150000'),
     ('20261124140000'),
-    ('20261126120000');
+    ('20261126120000'),
+    ('20261126190000');
