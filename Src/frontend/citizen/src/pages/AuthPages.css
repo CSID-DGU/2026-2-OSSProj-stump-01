@@ -32,3 +32,28 @@
   font-size: 14px;
   cursor: pointer;
 }
+
+/* 본인인증 칸 (components/IdentityVerify) */
+.identity-box {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.identity-note,
+.profile-note {
+  color: var(--muted);
+}
+.identity-done {
+  font-weight: 500;
+}
+.identity-again {
+  align-self: flex-start;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}

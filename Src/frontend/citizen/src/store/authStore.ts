@@ -3,7 +3,7 @@
 //  - guest: 로그인 안 함
 //  - signed-in: 로그인함 (user가 채워짐)
 import { useSyncExternalStore } from 'react'
-import { api, ApiError, type User } from '../lib/api'
+import { api, ApiError, type SignupInput, type User } from '../lib/api'
 import { getToken, setToken } from '../lib/token'
 import { clearNotifications } from './notificationStore'
 
@@ -38,9 +38,14 @@ export async function login(email: string, password: string) {
   signIn(res.token, res.user)
 }
 
-export async function signup(email: string, password: string, nickname: string) {
-  const res = await api.signup({ email, password, nickname })
+export async function signup(input: SignupInput) {
+  const res = await api.signup(input)
   signIn(res.token, res.user)
+}
+
+/** 내 정보를 고친 뒤 새 사용자 정보로 바꾼다 */
+export function updateSignedInUser(user: User) {
+  if (state.status === 'signed-in') setState({ status: 'signed-in', user })
 }
 
 export function logout() {
