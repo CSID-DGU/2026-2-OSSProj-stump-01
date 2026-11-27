@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage'
 import MapPage from './pages/MapPage'
 import MePage from './pages/MePage'
 import NotificationsPage from './pages/NotificationsPage'
+import ProfilePage from './pages/ProfilePage'
 import PlaceholderPage from './pages/PlaceholderPage'
 import RecordNewPage from './pages/RecordNewPage'
 import RecordsPage from './pages/RecordsPage'
@@ -57,6 +58,7 @@ export default function App() {
           <Route path="reports/new" element={<ReportWritePage />} />
           <Route path="volunteer-hours" element={<VolunteerHoursPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="me/profile" element={<ProfilePage />} />
           <Route path="apply" element={<ApplyPage />} />
           <Route path="applications" element={<MyApplicationsPage />} />
           <Route path="trees/:id/story/new" element={<StoryWritePage />} />
