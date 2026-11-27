@@ -908,10 +908,23 @@ paths:
                 photos: { type: array, maxItems: 3, items: { type: string, format: binary } }
       responses:
         '201':
-          description: 만든 기록
+          description: 만든 기록과 참여 보상(#15)
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Record' }
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Record'
+                  - type: object
+                    properties:
+                      reward:
+                        description: 활동 기록이면 나무의 고마워요 반응·스탬프 수(활동 기록 수)·이번에 새로 받은 배지(5·10회). 신고면 null
+                        oneOf:
+                          - type: 'null'
+                          - type: object
+                            properties:
+                              thanks: { type: string, example: '고마워요! 오늘의 돌봄이 나무 기록에 남았어요.' }
+                              stamps: { type: integer, example: 5 }
+                              newBadges: { type: array, items: { $ref: '#/components/schemas/Badge' } }
         '400':
           description: 요청 값이 올바르지 않음 (사진 4장 이상·이미지 아님 포함). 칸별 사유는 error.issues. 활동 기록인데 나무 근처 위치가 확인되지 않고 사진도 없으면 error.code = PHOTO_REQUIRED
           content:
@@ -1290,6 +1303,153 @@ paths:
                           properties:
                             id: { type: integer }
                             name: { type: string, example: '은행나무, 소파로 3번' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/stats:
+    get:
+      tags: [시민]
+      summary: 내 활동 통계 (#15)
+      description: 돌본 나무 수·누적 활동 기록 수·활동 시간 합·스탬프(= 활동 기록 수). 본인 것이라 검증 여부·기간과 상관없이 모든 활동 기록을 센다.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 내 통계
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  treeCount: { type: integer, description: 활동 기록을 남긴 나무 수 }
+                  activityCount: { type: integer }
+                  totalMinutes: { type: integer }
+                  stamps: { type: integer }
+                  rankingVisible: { type: boolean, description: 순위에 나오는지 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/badges:
+    get:
+      tags: [시민]
+      summary: 배지 목록과 받은 여부 (#15)
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 모든 배지 (스탬프 수 순)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  badges:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/Badge'
+                        - type: object
+                          properties:
+                            earned: { type: boolean }
+                            earnedAt: { type: [string, 'null'], format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /me/ranking:
+    put:
+      tags: [시민]
+      summary: 순위 켜기/끄기 (#15)
+      description: 끄면 활동 순위·공식 순위·이달의 MVP 목록에 나오지 않는다. 처음에는 켜져 있다.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [visible]
+              properties:
+                visible: { type: boolean }
+      responses:
+        '200':
+          description: 바뀐 값
+          content:
+            application/json:
+              schema: { type: object, properties: { visible: { type: boolean } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /rankings:
+    get:
+      tags: [시민]
+      summary: 활동 순위·공식 순위 (#15)
+      description: |
+        상위 10위까지 별명(nickname)만 보인다. 실명은 내보내지 않는다. 같은 점수는 같은 순위라 10명을 넘을 수 있다.
+        구청 담당자와 순위를 끈 시민은 빠진다. 10위 밖 순위는 본인에게도 숫자로 알려 주지 않는다(하위 순위 비공개).
+        - type=activity(기본): 이번 달(한국 시간) 인정 활동 횟수 → 같으면 돌본 나무 수 순.
+          인정 활동 = 현장 확인된 활동 기록(verification location·photo)을 (나무, 날)마다 한 번,
+          폭염 날(weather.is_heatwave, 일 최고기온 33℃ 이상) 11~17시에 남긴 기록은 뺀다.
+          폭염 여부는 다음 날 기상청 일자료가 들어와야 반영된다.
+        - type=official: 구청이 승인해 기록한 봉사시간(volunteer_hours) 누적 순. mvp 는 이번 달 기록된 봉사시간 1위(같으면 여럿).
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: type, in: query, required: false, schema: { type: string, enum: [activity, official], default: activity } }
+      responses:
+        '200':
+          description: 순위
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: type=activity
+                    properties:
+                      type: { type: string, const: activity }
+                      month: { type: string, example: '2026-11' }
+                      top:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            rank: { type: integer }
+                            nickname: { type: string }
+                            activityCount: { type: integer }
+                            treeCount: { type: integer }
+                            isMe: { type: boolean }
+                      me:
+                        allOf:
+                          - $ref: '#/components/schemas/RankingMe'
+                          - type: object
+                            properties:
+                              activityCount: { type: integer }
+                              treeCount: { type: integer }
+                  - type: object
+                    description: type=official
+                    properties:
+                      type: { type: string, const: official }
+                      top:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            rank: { type: integer }
+                            nickname: { type: string }
+                            minutes: { type: integer, description: 승인된 봉사시간(분) 누적 }
+                            isMe: { type: boolean }
+                      me:
+                        allOf:
+                          - $ref: '#/components/schemas/RankingMe'
+                          - type: object
+                            properties:
+                              minutes: { type: integer }
+                      mvp:
+                        type: object
+                        properties:
+                          month: { type: string, example: '2026-11' }
+                          winners:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                nickname: { type: string }
+                                minutes: { type: integer }
+                                isMe: { type: boolean }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -1877,6 +2037,19 @@ components:
             dong: { type: [string, 'null'] }
             roadName: { type: [string, 'null'], description: 노선 }
             address: { type: [string, 'null'] }
+    Badge:
+      type: object
+      description: 활동 기록 수(스탬프)로 받는 배지 (#15). 이름·횟수는 구청 확인 전 임시값(#59)
+      properties:
+        code: { type: string, example: caregiver_5 }
+        name: { type: string, example: 우리 동네 나무돌보미 }
+        stamps: { type: integer, example: 5, description: 받는 데 필요한 스탬프 수 }
+    RankingMe:
+      type: object
+      description: 내 순위. 순위를 껐거나(visible=false) 10위 밖이면 rank 는 null 이고, 점수는 나에게만 보인다
+      properties:
+        visible: { type: boolean, description: 순위에 나오는지 (PUT /me/ranking) }
+        rank: { type: [integer, 'null'] }
     Record:
       type: object
       description: 날짜별 활동 기록 또는 이상 신고

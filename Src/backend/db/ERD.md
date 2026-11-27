@@ -51,6 +51,7 @@ erDiagram
         varchar address "본인이 고침"
         varchar identity_ci_hash UK "본인인증 CI의 SHA-256. 한 사람 한 계정"
         timestamptz identity_verified_at "null=본인인증 전(구청 담당자, 이전 계정)"
+        boolean ranking_hidden "순위 끄기. true면 순위·MVP 목록에서 빠진다"
         timestamptz created_at
     }
 
@@ -213,7 +214,7 @@ erDiagram
     user_badges {
         bigint id PK
         bigint user_id FK
-        varchar badge_code "예: 우리 동네 나무돌보미"
+        varchar badge_code "caregiver_5 | caregiver_10 (citizen/rewards.ts BADGES)"
         timestamptz earned_at
     }
 
@@ -288,7 +289,8 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - **돌봄 관계는 다대다**: 한 명이 여러 그루, 한 그루에 여러 명이 돌본다. 그래서 `caregiver_applications`에는 나무당 1명 제약이 없다. 대신 같은 사람이 같은 나무에 대기·승인 중인 신청을 둘 갖지 못하게 `(user_id, tree_id)`에 `status IN ('pending', 'approved')` 부분 유니크 인덱스를 건다. 반려·종료 뒤 재신청은 된다. `approved`는 활동 기간이 끝난 다음 날 API 서버가 `ended`로 바꾼다(한 시간마다 확인).
 - **저장하지 않고 계산하는 값**: 다른 테이블에서 바로 구할 수 있어서 컬럼으로 두지 않았다. 컬럼으로 두면 원본과 값이 어긋날 수 있다.
   - 나무의 돌보미 여부·돌보미 수: `caregiver_applications`에서 `status = 'approved'`인 행으로 판단한다.
-  - 스탬프 수: `records`(`type = 'activity'`) 수를 센다. 5·10회가 되면 `user_badges` 행을 만든다.
+  - 스탬프 수: `records`(`type = 'activity'`) 수를 센다. 5·10회가 되면 `user_badges` 행을 만든다(활동 기록과 같은 트랜잭션, `citizen/rewards.ts`의 `awardStamps`).
+  - 순위(#15, `citizen/rewards.ts`): 활동 순위는 이번 달 `records`에서 `verification IN ('location', 'photo')`인 활동 기록을 `(user_id, tree_id, activity_date)`마다 한 번 세고, `weather.is_heatwave`인 날 11~17시(한국 시간 `recorded_at`)에 남긴 기록은 뺀다. 공식 순위는 `volunteer_hours.minutes` 누적, 이달의 MVP는 `volunteer_hours.recorded_at`이 이번 달인 합계 1위다. `users.ranking_hidden`(마이그레이션 20261128120000)이 true인 시민과 구청 담당자는 빠진다.
   - 나이테 신고·조치 표식: `reports.created_at`·`resolved_at`을 한국 시간 월별로 센다. 나이테 집계는 `backend/common/incident-markers.ts`의 `monthlyIncidentMarkers(db, treeId, year)`를 부른다(#21).
 - **보고서와 기록**: 보고서를 제출하면 고른 날짜의 활동 기록에 `monthly_report_id`를 채운다. 보고서 작성 화면은 `monthly_report_id IS NULL`인 기록이 있는 날짜만 보여 주므로, 이미 제출한 날짜는 다시 고를 수 없다.
   - `records (monthly_report_id, user_id)`가 `monthly_reports (id, user_id)`를 참조해서 남의 보고서에 기록이 묶이는 것을 DB가 막는다. `volunteer_hours`도 같은 방식이다.
