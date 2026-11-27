@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import PageTitle from '../components/PageTitle'
-import KakaoTreeMap from '../components/KakaoTreeMap'
+import KakaoTreeMap, { type MyLocation } from '../components/KakaoTreeMap'
 import TreeMap from '../components/TreeMap'
 import { api, ApiError, type Bbox, type Tree } from '../lib/api'
 import { KAKAO_MAP_KEY } from '../lib/kakao'
@@ -25,6 +25,7 @@ const KAKAO_LEVEL = 4 // 카카오맵 확대 단계. 작을수록 확대. 4 ≈ 
 const TREE_LIMIT = 2000 // 한 번에 받는 나무 수. 백엔드 상한과 같다
 const ZOOM_STEP = 1.6 // 임시 지도에서 확대·축소 한 단계의 배율
 const DISTRICT: string | undefined = '중구' // 시연 범위. 서울 전체로 넓히려면 undefined
+const LOW_ACCURACY_M = 50 // 내 위치 오차가 이보다 크면 "컴퓨터는 위치가 부정확해요" 안내를 붙인다
 
 export default function MapPage() {
   const [bbox, setBbox] = useState<Bbox>(DEFAULT_BBOX)
@@ -33,7 +34,7 @@ export default function MapPage() {
   const [selected, setSelected] = useState<Tree | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loadedBbox, setLoadedBbox] = useState<Bbox | null>(null) // 마지막으로 응답을 받은 범위
-  const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null)
+  const [flyTo, setFlyTo] = useState<MyLocation | null>(null) // 내 위치 (accuracy = 브라우저가 알려 준 오차 반경 m)
   const cart = useApplyCart() // 돌보미 신청할 나무 (#40)
   const useKakao = Boolean(KAKAO_MAP_KEY)
   const loading = loadedBbox !== bbox // 지금 범위의 응답을 아직 못 받았으면 불러오는 중
@@ -103,7 +104,7 @@ export default function MapPage() {
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        setFlyTo({ lat: coords.latitude, lng: coords.longitude }) // 지도 이동 + 내 위치 점
+        setFlyTo({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy }) // 지도 이동 + 내 위치 점·오차 원
         if (useKakao) return // 카카오맵은 이동이 끝나면(idle) 새 범위를 알려 준다
         const w = (bbox[2] - bbox[0]) / 2
         const h = (bbox[3] - bbox[1]) / 2
@@ -158,6 +159,14 @@ export default function MapPage() {
           me={flyTo}
           kindOf={kindOf}
         />
+      )}
+
+      {/* 내 위치가 얼마나 정확한지: 노트북은 GPS 없이 와이파이로 위치를 짐작해 수십~백여 m 틀릴 수 있다 */}
+      {flyTo?.accuracy !== undefined && (
+        <p className="map-page__notice" role="status">
+          내 위치 오차 약 {Math.round(flyTo.accuracy)}m (파란 원 안 어딘가에 계세요)
+          {flyTo.accuracy > LOW_ACCURACY_M && ' · 컴퓨터는 와이파이로 위치를 짐작해 오차가 커요. 휴대폰에서 더 정확해요.'}
+        </p>
       )}
 
       {/* #37 나무 구분 범례: 이 범위의 그루 수와 함께 */}

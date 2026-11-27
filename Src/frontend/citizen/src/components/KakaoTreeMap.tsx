@@ -6,15 +6,26 @@ import { useEffect, useRef, useState } from "react";
 import type { Bbox, Tree } from "../lib/api";
 import { loadKakao, type KakaoMap, type KakaoOverlay, type KakaoSdk } from "../lib/kakao";
 
-// 내 위치 점을 (다시) 찍는다. 이동(flyTo)과 점만 찍기(me)가 같이 쓴다
-function drawMeDot(sdk: KakaoSdk, map: KakaoMap, overlay: { current: KakaoOverlay | null }, at: { lat: number; lng: number }) {
+// 내 위치: 위도·경도와, 브라우저가 알려 준 오차 반경(m). 오차가 있으면 실제 크기의 원으로 그린다
+export type MyLocation = { lat: number; lng: number; accuracy?: number };
+const ACCURACY_COLOR = "#4f7fbf"; // styles/tokens.css 의 --cold (카카오 원은 CSS 변수를 못 읽는다)
+
+// 내 위치 점과 오차 원을 (다시) 그린다. 이동(flyTo)과 점만 찍기(me)가 같이 쓴다
+function drawMeDot(sdk: KakaoSdk, map: KakaoMap, overlays: { current: KakaoOverlay[] }, at: MyLocation) {
   const position = new sdk.maps.LatLng(at.lat, at.lng);
-  overlay.current?.setMap(null);
+  overlays.current.forEach((o) => o.setMap(null));
   const node = document.createElement("div");
   node.className = "me-dot";
-  node.setAttribute("aria-label", "내 위치");
-  overlay.current = new sdk.maps.CustomOverlay({ position, content: node, xAnchor: 0.5, yAnchor: 0.5, zIndex: 3 });
-  overlay.current.setMap(map);
+  node.setAttribute("aria-label", at.accuracy ? `내 위치 (오차 약 ${Math.round(at.accuracy)}m)` : "내 위치");
+  const dot = new sdk.maps.CustomOverlay({ position, content: node, xAnchor: 0.5, yAnchor: 0.5, zIndex: 3 });
+  overlays.current = [dot];
+  if (at.accuracy) {
+    // 진짜 위치는 이 원 안 어딘가다. 노트북(와이파이 추정)은 수십~백여 m, 휴대폰(GPS)은 보통 수 m
+    overlays.current.unshift(
+      new sdk.maps.Circle({ center: position, radius: at.accuracy, strokeWeight: 1, strokeColor: ACCURACY_COLOR, strokeOpacity: 0.6, fillColor: ACCURACY_COLOR, fillOpacity: 0.12, zIndex: 1 }),
+    );
+  }
+  overlays.current.forEach((o) => o.setMap(map));
   return position;
 }
 
@@ -26,9 +37,9 @@ interface Props {
   selectedId?: number;
   onSelect: (tree: Tree) => void;
   onBoundsChange: (bbox: Bbox) => void;
-  flyTo?: { lat: number; lng: number } | null; // 바뀌면 그 위치로 이동
+  flyTo?: MyLocation | null; // 바뀌면 그 위치로 이동하고 내 위치(오차 원 포함)를 그린다
   kindOf?: (tree: Tree) => string; // 나무 점에 붙일 종류 이름 (CSS 클래스 tree-dot--종류). 없으면 모두 같은 점
-  me?: { lat: number; lng: number } | null; // 지도를 옮기지 않고 내 위치 점만 찍는다 (내 나무 찾아가기에서 걸어가며 갱신)
+  me?: MyLocation | null; // 지도를 옮기지 않고 내 위치 점(오차 원 포함)만 그린다 (내 나무 찾아가기에서 걸어가며 갱신)
 }
 
 export default function KakaoTreeMap({ appKey, center, level, trees, selectedId, onSelect, onBoundsChange, flyTo, kindOf, me }: Props) {
@@ -36,7 +47,7 @@ export default function KakaoTreeMap({ appKey, center, level, trees, selectedId,
   const sdkRef = useRef<KakaoSdk | null>(null);
   const mapRef = useRef<KakaoMap | null>(null);
   const dots = useRef<Map<number, { overlay: KakaoOverlay; node: HTMLElement }>>(new Map());
-  const meOverlay = useRef<KakaoOverlay | null>(null); // 내 위치 표시
+  const meOverlay = useRef<KakaoOverlay[]>([]); // 내 위치 표시 (점 + 오차 원)
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 최신 콜백을 ref 로 들고 있어야 idle 리스너가 옛 클로저를 부르지 않는다
