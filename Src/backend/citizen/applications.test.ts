@@ -24,16 +24,15 @@ beforeEach(async () => {
 });
 afterAll(closePool);
 
-/** 정상 신청 본문(개인 신청). 바꿀 칸만 덮어쓴다. 항목은 구청 「나무돌보미 신청서(안)」 양식을 따른다. */
+/**
+ * 정상 신청 본문(개인 신청). 바꿀 칸만 덮어쓴다. 항목은 구청 「나무돌보미 신청서(안)」 양식을 따른다.
+ * 신청인 성명·연락처·주소는 본인인증한 프로필에서 가져오므로 본문에 없다.
+ */
 function body(overrides: Record<string, unknown> = {}) {
   return {
     treeIds: [treeA],
     periodStart: '2030-03-01',
-    applicantName: '김돌봄',
     headcount: 2,
-    postalCode: '04538',
-    address: '서울특별시 중구 명동길 1',
-    phone: '010-1234-5678',
     participationType: 'individual',
     motivation: '출근길에 매일 보는 나무라서요',
     activityPlan: '주 2회 나무 주변 쓰레기 줍기',
@@ -44,6 +43,15 @@ function body(overrides: Record<string, unknown> = {}) {
 
 const submit = (payload: object, token = me.token) =>
   request(api).post('/applications').set(auth(token)).send(payload);
+
+/** 이 사용자의 본인인증 프로필(신청서에 복사되는 값) */
+async function profileOf(userId: number) {
+  const { rows } = await getPool().query<{ real_name: string; phone: string; postal_code: string; address: string }>(
+    'SELECT real_name, phone, postal_code, address FROM users WHERE id = $1',
+    [userId],
+  );
+  return rows[0]!;
+}
 
 /** 응답과 따로, 이 사용자의 신청서 행 수를 DB에서 센다. */
 async function countApplications(userId: number): Promise<number> {
@@ -70,18 +78,19 @@ describe('POST /applications', () => {
   });
 
   it('양식 항목을 저장하고, 활동 기간은 시작일부터 1년(전날까지)으로 정한다', async () => {
+    const profile = await profileOf(me.id);
     const res = await submit(body({ periodStart: '2030-03-01' }));
 
     expect(res.status).toBe(201);
     expect(res.body.applications[0]).toMatchObject({
       periodStart: '2030-03-01',
       periodEnd: '2031-02-28',
-      applicantName: '김돌봄',
+      applicantName: profile.real_name, // 개인 신청은 본인인증한 이름
       contactPerson: null,
       headcount: 2,
-      postalCode: '04538',
-      address: '서울특별시 중구 명동길 1',
-      phone: '010-1234-5678',
+      postalCode: profile.postal_code, // 프로필에서 복사
+      address: profile.address,
+      phone: profile.phone,
       participationType: 'individual',
       motivation: '출근길에 매일 보는 나무라서요',
       activityPlan: '주 2회 나무 주변 쓰레기 줍기',
@@ -93,7 +102,7 @@ describe('POST /applications', () => {
   it('기업·단체는 담당자와 소개를 함께 낸다', async () => {
     const res = await submit(
       body({
-        applicantName: '푸른숲 주식회사',
+        organizationName: '푸른숲 주식회사',
         participationType: 'company',
         contactPerson: 'ESG팀 박담당',
         organizationIntro: '사내 봉사 동아리가 있습니다',
@@ -102,9 +111,41 @@ describe('POST /applications', () => {
     );
     expect(res.status).toBe(201);
     expect(res.body.applications[0]).toMatchObject({
+      applicantName: '푸른숲 주식회사', // 단체 신청은 단체명
       contactPerson: 'ESG팀 박담당',
       organizationIntro: '사내 봉사 동아리가 있습니다',
+      phone: (await profileOf(me.id)).phone, // 연락처는 신청한 사람 프로필
     });
+  });
+
+  it('신청인 성명·연락처·주소를 보내도 무시하고 본인인증한 프로필을 쓴다', async () => {
+    const res = await submit(body({ applicantName: '남의이름', phone: '010-9999-9999', address: '다른 주소', postalCode: '99999' }));
+    const profile = await profileOf(me.id);
+    expect(res.status).toBe(201);
+    expect(res.body.applications[0]).toMatchObject({
+      applicantName: profile.real_name,
+      phone: profile.phone,
+      address: profile.address,
+      postalCode: profile.postal_code,
+    });
+  });
+
+  it('개인 신청은 단체명·담당자를 보내도 저장하지 않는다', async () => {
+    const res = await submit(body({ organizationName: '어느 단체', contactPerson: '누군가' }));
+    expect(res.body.applications[0]).toMatchObject({ applicantName: (await profileOf(me.id)).real_name, contactPerson: null });
+  });
+
+  it('본인인증 전 계정은 403(IDENTITY_REQUIRED), 주소가 없으면 400(PROFILE_INCOMPLETE)', async () => {
+    const legacy = await createUser({ verified: false });
+    const res = await submit(body(), legacy.token);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('IDENTITY_REQUIRED');
+
+    await getPool().query('UPDATE users SET address = NULL WHERE id = $1', [me.id]);
+    const noAddress = await submit(body());
+    expect(noAddress.status).toBe(400);
+    expect(noAddress.body.error.code).toBe('PROFILE_INCOMPLETE');
+    expect(await countApplications(me.id)).toBe(0);
   });
 
   it('제출한 신청서는 그 나무 관리청 담당자의 심사 대기 목록에 들어간다', async () => {
@@ -144,13 +185,10 @@ describe('POST /applications', () => {
     ['참여 동기가 공백뿐이면', 'motivation', async () => ({ motivation: '   ' })],
     ['참여 동기가 500자를 넘으면', 'motivation', async () => ({ motivation: '가'.repeat(501) })],
     ['없는 날짜면', 'periodStart', async () => ({ periodStart: '2030-02-30' })],
-    ['신청인 이름이 없으면', 'applicantName', async () => ({ applicantName: '' })],
     ['신청 인원이 0명이면', 'headcount', async () => ({ headcount: 0 })],
-    ['우편번호가 5자리 숫자가 아니면', 'postalCode', async () => ({ postalCode: '0453' })],
-    ['주소가 없으면', 'address', async () => ({ address: ' ' })],
-    ['연락처가 전화번호 모양이 아니면', 'phone', async () => ({ phone: '연락주세요' })],
     ['참여유형이 목록에 없으면', 'participationType', async () => ({ participationType: 'school' })],
-    ['기업·단체인데 담당자가 없으면', 'contactPerson', async () => ({ participationType: 'civic_group' })],
+    ['기업·단체인데 담당자가 없으면', 'contactPerson', async () => ({ participationType: 'civic_group', organizationName: '푸른숲' })],
+    ['기업·단체인데 단체명이 없으면', 'organizationName', async () => ({ participationType: 'civic_group', contactPerson: '박담당' })],
     ['활동계획이 없으면', 'activityPlan', async () => ({ activityPlan: '' })],
     ['안내 사항에 동의하지 않으면', 'agreed', async () => ({ agreed: false })],
   ])('%s 400이고 저장하지 않는다', async (_, field, change) => {

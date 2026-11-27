@@ -41,10 +41,16 @@ erDiagram
         varchar email UK
         varchar password_hash
         varchar nickname
-        varchar real_name "이야기 실명 공개용"
+        varchar real_name "본인인증한 이름. 이야기 실명 공개·신청서·표창"
         varchar role "citizen | officer"
         varchar agency "구청 담당자의 소속 관리청"
         timestamptz education_completed_at "교육 이수 시각, null=미이수"
+        date birth_date "본인인증 결과"
+        varchar phone "본인인증한 휴대폰"
+        char postal_code "본인이 고침"
+        varchar address "본인이 고침"
+        varchar identity_ci_hash UK "본인인증 CI의 SHA-256. 한 사람 한 계정"
+        timestamptz identity_verified_at "null=본인인증 전(구청 담당자, 이전 계정)"
         timestamptz created_at
     }
 
@@ -294,6 +300,7 @@ DB에는 영어 코드로 저장하고, 화면에는 한국어로 보여 준다.
 - **상태 전이**: `reports`는 `inspected_at` 없이 `inspecting`/`resolved`가 될 수 없고, `resolved`일 때만 `resolved_at`이 있다. 신청서·보고서·물품도 승인·반려 상태면 처리한 담당자와 시각이 있어야 하고, 반려는 사유, 보완 요청은 의견이 있어야 한다.
 - **신뢰도**: `is_trusted`는 신고할 때의 교육 이수 여부를 복사해 둔다. 나중에 이수하더라도 그전 신고의 신뢰도는 바뀌지 않는다.
 - **물품 재고**: `rental_items.stock`은 "아직 배정하지 않은 수량"이고 0 아래로 내려갈 수 없다(CHECK). 구청-BE는 **승인할 때** 신청 수량만큼 줄이고(배정), 수령은 상태만 바꾼다. 그래서 재고보다 많이 승인할 수 없다. 승인·재고 차감·알림은 한 트랜잭션이고, 신청과 물품 행을 함께 잠가 동시에 승인해도 재고가 음수가 되지 않는다. 반려 사유(`reject_reason`, #70)는 선택 입력이다.
+- **본인인증과 프로필**(마이그레이션 20261126190000): 봉사시간이 실제 사람에게 연결되도록 시민은 가입 때 본인인증을 한다. `real_name`·`birth_date`·`phone`은 본인인증 결과라 본인인증을 다시 해야만 바뀌고, `postal_code`·`address`는 본인이 고친다. 같은 사람은 `identity_ci_hash`(부분 유니크)로 계정을 하나만 만든다. 주민등록번호는 저장하지 않는다. 돌보미 신청서의 신청인 성명·연락처·주소는 신청할 때 이 프로필에서 복사한다(나중에 프로필을 고쳐도 낸 신청서는 그대로).
 - **공동 이야기**: 이야기는 나무당 하나(`stories.tree_id` 유니크)이고, 여러 돌보미가 `story_entries`로 글을 덧붙인다. 실명/별명 선택(`author_display`)과 공개 여부(`is_public`, 마이그레이션 20261120150000)는 글마다 글쓴 돌보미가 한다. `stories`는 묶음이라 `tree_name`·`body`는 비워 둘 수 있고, `stories.is_public`은 쓰지 않는다.
 - **받은 호응**: 로그인 없이 남기므로 `device_key`로 기기를 구분한다. 같은 기기는 글 하나에 하루 한 번만 남길 수 있게 `(story_entry_id, device_key, reacted_on)`에 유니크 제약을 건다. `reacted_on`은 한국 날짜 기준이다. 한 줄 응답은 80자까지다.
 - **단체 관리자**: `users.role`이 아니라 `organization_members.role = 'admin'`으로 판단한다. 단체 관리자도 자기 나무를 돌보는 돌보미다.

@@ -116,6 +116,29 @@ export type User = {
   role: 'citizen' | 'officer' // 시민 / 구청 담당자
   agency: string | null // 구청 담당자의 소속 관리청
   educationCompleted: boolean // 돌보미 교육 이수 여부
+  identityVerified: boolean // 본인인증 했는지. 돌보미 신청은 본인인증한 시민만
+  profile: Profile
+}
+
+// 본인만 보는 내 정보. 이름·생년월일·휴대폰은 본인인증 결과(다시 인증해야 바뀜), 우편번호·주소는 본인이 고친다
+export type Profile = {
+  realName: string | null
+  birthDate: string | null // YYYY-MM-DD
+  phone: string | null
+  postalCode: string | null
+  address: string | null
+}
+
+// 본인인증 창에 넣는 값 (지금은 개발용 가짜 인증, 실서비스는 휴대폰 본인인증 창)
+export type IdentityInput = { name: string; birthDate: string; phone: string }
+
+export type SignupInput = {
+  email: string
+  password: string
+  nickname: string
+  identityToken: string // 본인인증이 끝나면 받는 거래 번호
+  postalCode: string
+  address: string
 }
 
 export type AuthResponse = {
@@ -170,12 +193,10 @@ export type MyApplication = {
 export type NewApplication = {
   treeIds: number[]
   periodStart: string // YYYY-MM-DD, 오늘이거나 그 뒤
-  applicantName: string
+  // 신청인 성명·연락처·주소는 서버가 본인인증한 프로필에서 가져온다(보내지 않음)
+  organizationName: string | null // 기업·단체명. 개인·가족이 아니면 필수
   contactPerson: string | null // 개인·가족이 아니면 필수
   headcount: number
-  postalCode: string // 5자리 숫자
-  address: string
-  phone: string
   participationType: string
   motivation: string
   activityPlan: string
@@ -373,8 +394,17 @@ export const api = {
   // 내 월간 보고서 (최신순)
   myReports: () => get<{ reports: MyMonthlyReport[] }>('/monthly-reports/me'),
 
-  // 회원가입 (시민 계정만). 실명·연락처는 받지 않는다
-  signup: (input: { email: string; password: string; nickname: string }) => post<AuthResponse>('/auth/signup', input),
+  // 개발용 가짜 본인인증 "인증 창". 10분 동안 쓸 수 있는 거래 번호를 준다 (실서비스는 휴대폰 본인인증 창)
+  mockIdentity: (input: IdentityInput) => post<{ identityToken: string }>('/auth/identity/mock', input),
+
+  // 회원가입 (시민 계정만). 본인인증 거래 번호와 주소를 함께 낸다. 만 14세 미만 403, 같은 사람 두 번째 계정 409
+  signup: (input: SignupInput) => post<AuthResponse>('/auth/signup', input),
+
+  // 내 정보 고치기: 별명, 주소(우편번호와 같이)
+  updateMe: (input: { nickname?: string; postalCode?: string; address?: string }) => request<User>('PATCH', '/auth/me', input),
+
+  // 본인인증 다시 하기 (휴대폰 번호가 바뀌었을 때, 또는 본인인증 기능 전에 만든 계정). 가입한 사람과 달라지면 403
+  reverifyIdentity: (identityToken: string) => post<User>('/auth/me/identity', { identityToken }),
 
   // 로그인 (시민·구청 담당자 공통)
   login: (input: { email: string; password: string }) => post<AuthResponse>('/auth/login', input),

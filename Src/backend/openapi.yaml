@@ -563,27 +563,79 @@ paths:
   /auth/signup:
     post:
       tags: [시민]
-      summary: 회원가입
-      description: 시민 계정을 만들고 토큰을 발급한다. 실명·연락처는 받지 않는다(돌보미 신청서에서 따로 받는다). 구청 담당자 계정은 운영자가 관리청과 함께 DB에서 만든다.
+      summary: 회원가입 (본인인증)
+      description: |
+        본인인증을 거친 시민 계정을 만들고 토큰을 발급한다. 봉사시간이 실제 사람에게 연결되도록 가입 때 본인인증을 한다.
+        - 본인인증 결과(이름·생년월일·휴대폰)는 프로필에 저장되고, 본인인증을 다시 해야만 바뀐다(`POST /auth/me/identity`). 주민등록번호는 받지 않는다.
+        - 같은 사람(본인인증 연계정보 CI)은 계정을 하나만 만든다(409 IDENTITY_IN_USE). DB에는 CI 해시만 저장한다.
+        - 만 14세 미만은 가입할 수 없다(403 UNDER_AGE, 법정대리인 동의 필요).
+        - 구청 담당자 계정은 운영자가 관리청과 함께 DB에서 만든다.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [email, password, nickname]
+              required: [email, password, nickname, identityToken, postalCode, address]
               properties:
                 email: { type: string, format: email, example: kth@example.com }
                 password: { type: string, minLength: 8, maxLength: 72, example: password123 }
                 nickname: { type: string, maxLength: 20, description: 활동 이름. 이야기·응답에 보인다, example: 태형 }
+                identityToken: { type: string, description: 본인인증이 끝나면 인증 업체가 주는 거래 번호. 개발용은 POST /auth/identity/mock }
+                postalCode: { type: string, pattern: '^\d{5}$', example: '04620' }
+                address: { type: string, maxLength: 200, example: 서울특별시 중구 필동로1길 30 }
       responses:
         '201':
           description: 가입 완료
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AuthResponse' }
+        '400':
+          description: 요청 값이 올바르지 않음, 또는 본인인증 정보가 위조·만료됨(IDENTITY_INVALID)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '403':
+          description: 만 14세 미만(UNDER_AGE)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: 이미 가입된 이메일, 또는 같은 사람이 이미 가입함(IDENTITY_IN_USE)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/identity/mock:
+    post:
+      tags: [시민]
+      summary: 개발용 가짜 본인인증 "인증 창"
+      description: |
+        실제 휴대폰 본인인증은 인증 업체(NICE·KCB·다날 등)와 사업자 계약이 있어야 해서, 개발·시연에서는 이 경로가 인증 창 역할을 한다.
+        입력한 이름·생년월일·휴대폰으로 10분 동안 쓸 수 있는 거래 번호(identityToken)를 준다. 같은 이름·생년월일이면 같은 사람(CI)으로 본다.
+        `IDENTITY_PROVIDER`에 실제 업체를 연결하면 이 경로는 404다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, birthDate, phone]
+              properties:
+                name: { type: string, maxLength: 50, example: 김태형 }
+                birthDate: { type: string, format: date, example: '2003-05-01' }
+                phone: { type: string, example: 010-1234-5678 }
+      responses:
+        '200':
+          description: 거래 번호
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  identityToken: { type: string }
         '400': { $ref: '#/components/responses/BadRequest' }
-        '409': { $ref: '#/components/responses/Conflict' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /auth/login:
     post:
@@ -620,6 +672,57 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [시민]
+      summary: 내 정보 고치기 (별명, 주소)
+      description: 별명과 주소(우편번호와 같이)만 고친다. 이름·생년월일·휴대폰은 보내도 무시하고, 본인인증을 다시 해야 바뀐다.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname: { type: string, maxLength: 20 }
+                postalCode: { type: string, pattern: '^\d{5}$' }
+                address: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: 고친 사용자
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/me/identity:
+    post:
+      tags: [시민]
+      summary: 본인인증 다시 하기 (휴대폰 번호 변경)
+      description: |
+        본인인증을 다시 해서 이름·생년월일·휴대폰을 새 인증 결과로 바꾼다. 가입 때와 같은 사람이어야 한다(다르면 403 IDENTITY_MISMATCH, 계정은 본인만 쓴다).
+        본인인증 기능 전에 만든 계정은 여기서 처음 본인인증을 한다(만 14세 미만 403, 이미 다른 계정이 쓴 사람 409).
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identityToken]
+              properties:
+                identityToken: { type: string }
+      responses:
+        '200':
+          description: 고친 사용자
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /trees:
     get:
@@ -704,8 +807,11 @@ paths:
         한 그루라도 막히면 아무것도 저장하지 않는다. 시민 계정만 쓸 수 있다.
         항목은 구청 「나무돌보미(Adopt a Tree) 신청서(안)」 양식을 따른다(입양대상지는 가로수뿐이라 칸이 없다).
         - 시작일은 오늘(한국 시간)이거나 그 뒤. 종료일은 양식대로 1년 기본이라 서버가 시작일 + 1년 전날로 정한다
-        - 한 번에 10그루까지 (임시값). 기업·단체(개인/가족이 아닌 유형)는 담당자가 필수
+        - 한 번에 10그루까지 (임시값). 기업·단체(개인/가족이 아닌 유형)는 단체명과 담당자가 필수
         - 반려·종료된 나무는 다시 신청할 수 있다
+        - 신청인 성명·연락처·우편번호·주소는 받지 않고 본인인증한 프로필(`GET /auth/me`)에서 신청서로 복사한다(보내도 무시).
+          개인 신청의 신청인은 본인인증한 이름, 기업·단체 신청은 organizationName이다.
+        - 본인인증 전 계정은 403 IDENTITY_REQUIRED, 프로필에 주소가 없으면 400 PROFILE_INCOMPLETE
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -713,16 +819,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [treeIds, periodStart, applicantName, headcount, postalCode, address, phone, participationType, motivation, activityPlan, agreed]
+              required: [treeIds, periodStart, headcount, participationType, motivation, activityPlan, agreed]
               properties:
                 treeIds: { type: array, items: { type: integer }, minItems: 1, maxItems: 10, uniqueItems: true, description: 돌볼 나무 id }
                 periodStart: { type: string, format: date, example: '2026-12-01', description: 활동 시작일 }
-                applicantName: { type: string, maxLength: 100, description: 신청인 성명 또는 단체명 }
-                contactPerson: { type: [string, 'null'], maxLength: 100, description: 기업·단체의 담당부서와 담당자 (개인/가족이 아니면 필수) }
+                organizationName: { type: [string, 'null'], maxLength: 100, description: 기업·단체명 (개인/가족이 아니면 필수). 개인 신청이면 무시 }
+                contactPerson: { type: [string, 'null'], maxLength: 100, description: 기업·단체의 담당부서와 담당자 (개인/가족이 아니면 필수). 개인 신청이면 무시 }
                 headcount: { type: integer, minimum: 1, maximum: 1000, description: 신청 인원 }
-                postalCode: { type: string, pattern: '^\d{5}$', example: '04538' }
-                address: { type: string, maxLength: 200 }
-                phone: { type: string, example: 010-1234-5678, description: 연락처 }
                 participationType: { type: string, enum: [individual, company, civic_group, religious_group, village_community, other], description: 개인/가족 · 기업 · 시민단체 · 종교단체 · 마을공동체 · 기타 }
                 motivation: { type: string, minLength: 1, maxLength: 500, description: 신청사유 }
                 activityPlan: { type: string, maxLength: 2000, description: 활동계획 (양식 별첨 2, 형식 자유) }
@@ -745,7 +848,7 @@ paths:
               schema: { $ref: '#/components/schemas/Error' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: 시민 계정이 아님 (구청 담당자는 신청할 수 없다)
+          description: 시민 계정이 아님(구청 담당자는 신청할 수 없다), 또는 본인인증 전 계정(IDENTITY_REQUIRED)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
@@ -1489,6 +1592,16 @@ components:
         role: { type: string, enum: [citizen, officer] }
         agency: { type: [string, 'null'], description: 구청 담당자의 소속 관리청 }
         educationCompleted: { type: boolean, description: 돌보미 교육 이수 여부 }
+        identityVerified: { type: boolean, description: 본인인증을 했는지. 돌보미 신청은 본인인증한 시민만 한다 }
+        profile:
+          type: object
+          description: 본인만 본다. 이름·생년월일·휴대폰은 본인인증 결과(다시 인증해야 바뀜), 우편번호·주소는 본인이 고친다
+          properties:
+            realName: { type: [string, 'null'] }
+            birthDate: { type: [string, 'null'], format: date }
+            phone: { type: [string, 'null'], example: 010-1234-5678 }
+            postalCode: { type: [string, 'null'] }
+            address: { type: [string, 'null'] }
     AuthResponse:
       type: object
       properties:

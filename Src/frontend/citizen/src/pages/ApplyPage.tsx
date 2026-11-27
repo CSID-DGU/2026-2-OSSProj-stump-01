@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import TopBar from '../components/TopBar'
 import ChoiceGroup from '../components/ChoiceGroup'
 import {
-  ADDRESS_MAX,
   HEADCOUNT_MAX,
   LONG_TEXT_MAX,
   MAX_TREES,
@@ -18,22 +17,16 @@ import {
 import { api, ApiError, type MyApplication } from '../lib/api'
 import { formatLongDate, periodEndOf, todayKey } from '../lib/date'
 import { clearCart, removeFromCart, useApplyCart } from '../store/applyCart'
+import { useAuth } from '../store/authStore'
 import './ApplyPages.css'
-
-// 서버와 같은 형식 검사
-const PHONE_RE = /^0\d{1,2}-?\d{3,4}-?\d{4}$/
-const POSTAL_RE = /^\d{5}$/
 
 // 서버 오류의 칸 이름 → 화면 칸 이름
 const FIELD_LABEL: Record<string, string> = {
   treeIds: '돌볼 나무',
   periodStart: '시작일',
-  applicantName: '신청인',
+  organizationName: '단체명',
   contactPerson: '담당자',
   headcount: '인원',
-  postalCode: '우편번호',
-  address: '주소',
-  phone: '연락처',
   participationType: '참여 유형',
   motivation: '신청 사유',
   activityPlan: '활동 계획',
@@ -43,18 +36,21 @@ const FIELD_LABEL: Record<string, string> = {
 
 // 돌보미 신청서 (#40)
 // 지도에서 담은 나무로 구청 「나무돌보미 신청서」 양식을 채워 낸다. 나무마다 신청서가 하나씩 생기고 구청이 그루마다 심사한다.
+// 신청인 성명·연락처·주소는 다시 쓰지 않는다. 본인인증한 내 정보를 보여 주기만 하고, 서버가 그 정보를 신청서에 넣는다.
+// 바뀐 주소는 내 정보에서 고치고, 휴대폰 번호는 본인인증을 다시 해서 바꾼다. 참여 유형·인원·사유 등 이번 참여에 대한 것만 받는다.
 export default function ApplyPage() {
   const cart = useApplyCart()
   const today = todayKey()
+  const auth = useAuth()
+  const user = auth.status === 'signed-in' ? auth.user : null
+  const profile = user?.profile
+  const profileReady = !!user?.identityVerified && !!profile?.address && !!profile?.postalCode
 
   const [type, setType] = useState<ParticipationType[]>(['individual'])
   const [periodStart, setPeriodStart] = useState(today)
-  const [applicantName, setApplicantName] = useState('')
+  const [organizationName, setOrganizationName] = useState('')
   const [contactPerson, setContactPerson] = useState('')
   const [headcount, setHeadcount] = useState('1')
-  const [phone, setPhone] = useState('')
-  const [postalCode, setPostalCode] = useState('')
-  const [address, setAddress] = useState('')
   const [motivation, setMotivation] = useState('')
   const [activityPlan, setActivityPlan] = useState('')
   const [organizationIntro, setOrganizationIntro] = useState('')
@@ -71,12 +67,10 @@ export default function ApplyPage() {
   const missing: string[] = []
   if (cart.length === 0) missing.push('돌볼 나무')
   if (!periodStart || periodStart < today) missing.push('시작일')
-  if (!applicantName.trim()) missing.push(isGroup ? '단체명' : '신청인 성명')
+  if (!profileReady) missing.push(user?.identityVerified ? '내 정보의 주소' : '본인인증')
+  if (isGroup && !organizationName.trim()) missing.push('단체명')
   if (isGroup && !contactPerson.trim()) missing.push('담당자')
   if (!Number.isInteger(count) || count < 1 || count > HEADCOUNT_MAX) missing.push('인원')
-  if (!PHONE_RE.test(phone.trim())) missing.push('연락처')
-  if (!POSTAL_RE.test(postalCode.trim())) missing.push('우편번호')
-  if (!address.trim()) missing.push('주소')
   if (!motivation.trim()) missing.push('신청 사유')
   if (!activityPlan.trim()) missing.push('활동 계획')
   if (!agreed) missing.push('안내 사항 동의')
@@ -90,12 +84,9 @@ export default function ApplyPage() {
       const res = await api.apply({
         treeIds: cart.map((t) => t.id),
         periodStart,
-        applicantName: applicantName.trim(),
+        organizationName: isGroup ? organizationName.trim() : null,
         contactPerson: isGroup ? contactPerson.trim() : null,
         headcount: count,
-        postalCode: postalCode.trim(),
-        address: address.trim(),
-        phone: phone.trim(),
         participationType: type[0],
         motivation: motivation.trim(),
         activityPlan: activityPlan.trim(),
@@ -204,8 +195,33 @@ export default function ApplyPage() {
           </div>
         </Section>
 
-        {/* 3. 신청인 */}
-        <Section title="신청인" note="심사와 연락에만 쓰이고 관리청 담당자만 볼 수 있어요.">
+        {/* 3. 신청인: 본인인증한 내 정보를 그대로 쓴다 */}
+        <Section title="신청인" note="본인인증한 내 정보로 신청해요. 심사와 연락에만 쓰이고 관리청 담당자만 볼 수 있어요.">
+          {!user?.identityVerified ? (
+            <p className="body apply-error" role="alert">
+              본인인증을 한 계정만 신청할 수 있어요. <Link className="tc-link" to="/me/profile">내 정보에서 본인인증하기</Link>
+            </p>
+          ) : (
+            <>
+              <ul className="tc-rows apply-list">
+                <li className="tc-row">
+                  <span>{isGroup ? '신청한 사람' : '신청인 성명'}</span>
+                  <span className="tc-row__value">{profile?.realName}</span>
+                </li>
+                <li className="tc-row">
+                  <span>연락처</span>
+                  <span className="tc-row__value">{profile?.phone}</span>
+                </li>
+                <li className="tc-row">
+                  <span>주소</span>
+                  <span className="tc-row__value">{profile?.address ? `(${profile.postalCode}) ${profile.address}` : '아직 없어요'}</span>
+                </li>
+              </ul>
+              <Link className="tc-link apply-more" to="/me/profile">
+                {profile?.address ? '주소가 바뀌었나요? 내 정보에서 고치기' : '내 정보에서 주소 적기'}
+              </Link>
+            </>
+          )}
           <ChoiceGroup
             label="참여 유형"
             options={PARTICIPATION_TYPES.map((t) => t.code)}
@@ -213,33 +229,13 @@ export default function ApplyPage() {
             onChange={(next) => next.length > 0 && setType(next)}
             format={participationLabel}
           />
-          <TextInput id="apply-name" label={isGroup ? '단체명' : '신청인 성명'} value={applicantName} onChange={setApplicantName} max={NAME_MAX} autoComplete={isGroup ? 'organization' : 'name'} />
           {isGroup && (
-            <TextInput id="apply-contact" label="담당 부서와 담당자" value={contactPerson} onChange={setContactPerson} max={NAME_MAX} placeholder="예: 사회공헌팀 김양우" />
+            <>
+              <TextInput id="apply-org" label="단체명" value={organizationName} onChange={setOrganizationName} max={NAME_MAX} autoComplete="organization" help="기업·단체로 신청하면 신청서의 신청인은 단체명이에요." />
+              <TextInput id="apply-contact" label="담당 부서와 담당자" value={contactPerson} onChange={setContactPerson} max={NAME_MAX} placeholder="예: 사회공헌팀 김양우" />
+            </>
           )}
           <TextInput id="apply-headcount" label="인원" value={headcount} onChange={setHeadcount} type="number" inputMode="numeric" help={`함께 활동할 사람 수 (최대 ${HEADCOUNT_MAX}명)`} />
-          <TextInput
-            id="apply-phone"
-            label="연락처"
-            value={phone}
-            onChange={setPhone}
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="010-1234-5678"
-            problem={phone && !PHONE_RE.test(phone.trim()) ? '전화번호 형식으로 써 주세요. 예: 010-1234-5678' : ''}
-          />
-          <TextInput
-            id="apply-postal"
-            label="우편번호"
-            value={postalCode}
-            onChange={setPostalCode}
-            inputMode="numeric"
-            autoComplete="postal-code"
-            max={5}
-            problem={postalCode && !POSTAL_RE.test(postalCode.trim()) ? '숫자 5자리로 써 주세요.' : ''}
-          />
-          <TextInput id="apply-address" label="주소" value={address} onChange={setAddress} max={ADDRESS_MAX} autoComplete="street-address" />
         </Section>
 
         {/* 4. 신청 내용 */}
@@ -355,6 +351,8 @@ function TextArea({ id, label, value, onChange, max, placeholder }: { id: string
 function applyErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 409) return '이미 심사 대기 중이거나 승인된 나무가 섞여 있어요. 그 나무를 빼고 다시 내 주세요. (내 신청 현황에서 확인할 수 있어요)'
+    if (err.code === 'IDENTITY_REQUIRED') return '본인인증을 한 계정만 신청할 수 있어요. 내 정보에서 본인인증을 해 주세요.'
+    if (err.code === 'PROFILE_INCOMPLETE') return '내 정보에 주소를 먼저 적어 주세요.'
     if (err.status === 403) return '시민 계정만 신청할 수 있어요.'
     if (err.status === 400 && err.issues.length > 0) {
       const fields = [...new Set(err.issues.map((i) => FIELD_LABEL[String(i.path[0])] ?? String(i.path[0])))]

@@ -14,7 +14,6 @@ const MAX_TREES_PER_APPLICATION = 10; // 한 번에 신청할 수 있는 나무 
 const PERIOD_YEARS = 1; // 활동 기간. 양식: "1년을 기본으로 체결"
 const MAX_HEADCOUNT = 1000; // 신청 인원 상한 (임시값)
 const NAME_MAX_LENGTH = 100;
-const ADDRESS_MAX_LENGTH = 200;
 const MOTIVATION_MAX_LENGTH = 500;
 const LONG_TEXT_MAX_LENGTH = 2000; // 활동계획·단체 소개
 const TIME_ZONE = 'Asia/Seoul'; // "오늘"은 한국 시간 달력 기준
@@ -55,12 +54,11 @@ const applicationBody = z
       .max(MAX_TREES_PER_APPLICATION)
       .refine((ids) => new Set(ids).size === ids.length, '같은 나무를 두 번 넣을 수 없다.'),
     periodStart: z.iso.date(), // 'YYYY-MM-DD' 라 문자열 비교가 곧 날짜 비교다
-    applicantName: requiredText(NAME_MAX_LENGTH), // 성명 또는 단체명
+    // 신청인 성명·연락처·주소는 받지 않고 본인인증한 프로필에서 가져온다(아래 POST /).
+    // 보내도 무시한다(zod가 모르는 칸을 버림). 기업·단체로 신청할 때만 단체명을 받는다.
+    organizationName: optionalText(NAME_MAX_LENGTH), // 기업·단체명 → 신청서의 신청인(applicant_name)
     contactPerson: optionalText(NAME_MAX_LENGTH), // 기업·단체의 담당부서·담당자
     headcount: z.number().int().min(1).max(MAX_HEADCOUNT),
-    postalCode: z.string().regex(/^\d{5}$/, '우편번호는 5자리 숫자다.'),
-    address: requiredText(ADDRESS_MAX_LENGTH),
-    phone: z.string().trim().regex(/^0\d{1,2}-?\d{3,4}-?\d{4}$/, '연락처는 전화번호 형식이어야 한다.'),
     participationType: z.enum(PARTICIPATION_TYPES),
     motivation: requiredText(MOTIVATION_MAX_LENGTH), // 신청사유
     activityPlan: requiredText(LONG_TEXT_MAX_LENGTH), // 별첨 2. 활동계획서 (형식 자유)
@@ -74,6 +72,10 @@ const applicationBody = z
   .refine((b) => b.participationType === 'individual' || b.contactPerson !== null, {
     path: ['contactPerson'],
     message: '기업·단체는 담당부서와 담당자를 적어야 한다.',
+  })
+  .refine((b) => b.participationType === 'individual' || b.organizationName !== null, {
+    path: ['organizationName'],
+    message: '기업·단체는 단체명을 적어야 한다.',
   });
 
 // ── 응답 형식 ──
@@ -198,6 +200,23 @@ applicationsRouter.post('/', async (req, res) => {
   const b = applicationBody.parse(req.body);
 
   const pool = getPool();
+  // 신청인 정보는 본인인증한 프로필에서 가져와 신청서에 그대로 복사한다(나중에 프로필을 고쳐도 낸 신청서는 그대로)
+  const { rows: me } = await pool.query<{
+    real_name: string | null;
+    phone: string | null;
+    postal_code: string | null;
+    address: string | null;
+    identity_verified_at: Date | null;
+  }>('SELECT real_name, phone, postal_code, address, identity_verified_at FROM users WHERE id = $1', [userId]);
+  const profile = me[0]!;
+  if (profile.identity_verified_at === null) {
+    throw new HttpError(403, 'IDENTITY_REQUIRED', '본인인증한 계정만 돌보미를 신청할 수 있다. 내 정보에서 본인인증을 한다.');
+  }
+  if (!profile.address || !profile.postal_code) {
+    throw new HttpError(400, 'PROFILE_INCOMPLETE', '내 정보에 주소를 먼저 적는다.');
+  }
+  const applicantName = b.participationType === 'individual' ? profile.real_name : b.organizationName;
+
   // unnest: 나무 id 배열을 행으로 펼쳐 그루마다 한 행씩 넣는다
   const { rows: inserted } = await pool.query<{ id: number }>(
     `INSERT INTO caregiver_applications
@@ -211,12 +230,12 @@ applicationsRouter.post('/', async (req, res) => {
       b.treeIds,
       b.periodStart,
       periodEndOf(b.periodStart),
-      b.applicantName,
-      b.contactPerson,
+      applicantName,
+      b.participationType === 'individual' ? null : b.contactPerson,
       b.headcount,
-      b.postalCode,
-      b.address,
-      b.phone,
+      profile.postal_code,
+      profile.address,
+      profile.phone,
       b.participationType,
       b.motivation,
       b.activityPlan,

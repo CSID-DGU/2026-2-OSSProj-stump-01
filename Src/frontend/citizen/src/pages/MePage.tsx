@@ -6,7 +6,7 @@ import { logout, useAuth } from '../store/authStore'
 import { refreshNotifications, useNotifications } from '../store/notificationStore'
 import './AuthPages.css'
 
-// 하단 탭 "나". 내 정보, 알림(#41), 돌보미 신청 현황(#40), 물품 신청(#81), 홈 화면 추가(#84), 로그아웃.
+// 하단 탭 "나". 내 정보(본인인증·주소), 알림(#41), 돌보미 신청 현황(#40), 물품 신청(#81), 홈 화면 추가(#84), 로그아웃.
 export default function MePage() {
   const auth = useAuth()
   const navigate = useNavigate()
@@ -24,6 +24,12 @@ export default function MePage() {
       <PageTitle title={`${user.nickname} 님`} description={user.email} />
 
       <div className="tc-rows">
+        <Link className="tc-row me-link" to="/me/profile">
+          <span>내 정보</span>
+          <span className={user.identityVerified ? 'tc-row__value' : 'tc-row__value tc-row__value--earth'}>
+            {user.identityVerified ? '본인인증함' : '본인인증 필요'}
+          </span>
+        </Link>
         <Link className="tc-row me-link" to="/notifications">
           <span>알림</span>
           <span className="tc-row__value">{unreadCount > 0 ? `새 알림 ${unreadCount}개` : '모두 읽음'}</span>
