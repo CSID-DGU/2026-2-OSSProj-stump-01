@@ -372,12 +372,12 @@ function TreeInfo({ tree, reportIds, onClose }: { tree: Tree; reportIds: number[
       </dl>
       {/* 그 신고를 바로 연다(신고 처리 화면은 주소의 id로 상세를 연다). 한 나무에 여러 건이면 건마다 버튼 */}
       {reportIds.map((id) => (
-        <Link key={id} to={`/incident-reports?id=${id}`} className={`${ui.button} ${ui.primary}`}>
+        <Link key={id} to={`/incident-reports?id=${id}`} className={`${ui.button} ${ui.primary} ${styles.linkButton}`}>
           {reportIds.length > 1 ? `신고 #${id} 처리로 가기` : '신고 처리로 가기'}
         </Link>
       ))}
       {tree.hasOpenReport && reportIds.length === 0 && (
-        <Link to="/incident-reports" className={`${ui.button} ${ui.primary}`}>
+        <Link to="/incident-reports" className={`${ui.button} ${ui.primary} ${styles.linkButton}`}>
           신고 처리로 가기
         </Link>
       )}

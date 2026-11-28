@@ -107,3 +107,15 @@
 .urgentItem:hover {
   background: var(--color-bg);
 }
+
+/* 버튼 모양 링크. ui.button은 <button>용이라 <a>에 쓰면 글자가 위로 붙어서 가운데로 맞춘다 */
+.linkButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.linkButton:hover {
+  color: #fff;
+  background: var(--color-primary-dark);
+}
