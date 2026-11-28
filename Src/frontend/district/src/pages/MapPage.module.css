@@ -64,6 +64,11 @@
   gap: 8px;
   width: 100%;
 }
+/* 나무 이름이 길어도 닫기 버튼이 줄어 글자가 세로로 쌓이지 않게 한다 */
+.infoHead button {
+  flex: none;
+  white-space: nowrap;
+}
 .kind {
   display: flex;
   flex-wrap: wrap;
