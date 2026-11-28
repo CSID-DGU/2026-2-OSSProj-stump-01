@@ -16,6 +16,7 @@ export type Dashboard = {
     missingReportList: { userId: number; nickname: string; realName: string | null; treeCount: number }[];
   };
   volunteerHours: { minutes: number; people: number };
+  careGaps: { noCaregiver: number; inactive: number }; // 관리 사각지대(#22). 나무 기준이라 단체 필터와 상관없이 관리청 전체
   organizations: { id: number; name: string }[];
 };
 
