@@ -266,7 +266,12 @@ export function MapPage() {
           {selected ? (
             <TreeInfo tree={selected} reportIds={openReports.reportIds.get(selected.id) ?? []} onClose={() => setSelected(null)} />
           ) : (
-            <UrgentList reports={reportTrees} inactive={inactiveInView} truncated={truncated} onPick={pick} />
+            <UrgentList
+              reports={hidden.has('report') ? null : reportTrees}
+              inactive={hidden.has('inactive') ? null : inactiveInView}
+              truncated={truncated}
+              onPick={pick}
+            />
           )}
         </aside>
       </div>
@@ -274,41 +279,49 @@ export function MapPage() {
   );
 }
 
-/** 처리가 필요한 나무 목록. 누르면 지도가 그 나무로 옮겨 가고 정보를 보여 준다 */
+/**
+ * 처리가 필요한 나무 목록. 누르면 지도가 그 나무로 옮겨 가고 정보를 보여 준다.
+ * 위 범례에서 끈 종류는 null로 받아 목록에서도 뺀다.
+ */
 function UrgentList({
   reports,
   inactive,
   truncated,
   onPick,
 }: {
-  reports: Tree[];
-  inactive: Tree[];
+  reports: Tree[] | null;
+  inactive: Tree[] | null;
   truncated: boolean;
   onPick: (tree: Tree) => void;
 }) {
   return (
     <div className={styles.urgent}>
       <h2 className={ui.panelTitle}>처리가 필요한 나무</h2>
-      <section>
-        <h3 className={styles.urgentTitle}>
-          <span className="tm-dot tm-dot--report" aria-hidden="true" />
-          미처리 신고 <span className={styles.urgentCount}>{reports.length}</span>
-          <span className={ui.muted}> · 관리청 전체</span>
-        </h3>
-        <TreeButtons trees={reports} onPick={onPick} empty="처리 중인 신고가 없습니다." />
-      </section>
-      <section>
-        <h3 className={styles.urgentTitle}>
-          <span className="tm-dot tm-dot--inactive" aria-hidden="true" />
-          활동이 끊긴 나무 <span className={styles.urgentCount}>{truncated ? '-' : inactive.length}</span>
-          <span className={ui.muted}> · 지금 화면</span>
-        </h3>
-        <TreeButtons
-          trees={truncated ? [] : inactive}
-          onPick={onPick}
-          empty={truncated ? '확대하면 보입니다.' : '지금 화면에는 없습니다.'}
-        />
-      </section>
+      {!reports && !inactive && <p className={ui.muted}>위에서 미처리 신고나 활동이 끊긴 나무를 켜면 목록이 보입니다.</p>}
+      {reports && (
+        <section>
+          <h3 className={styles.urgentTitle}>
+            <span className="tm-dot tm-dot--report" aria-hidden="true" />
+            미처리 신고 <span className={styles.urgentCount}>{reports.length}</span>
+            <span className={ui.muted}> · 관리청 전체</span>
+          </h3>
+          <TreeButtons trees={reports} onPick={onPick} empty="처리 중인 신고가 없습니다." />
+        </section>
+      )}
+      {inactive && (
+        <section>
+          <h3 className={styles.urgentTitle}>
+            <span className="tm-dot tm-dot--inactive" aria-hidden="true" />
+            활동이 끊긴 나무 <span className={styles.urgentCount}>{truncated ? '-' : inactive.length}</span>
+            <span className={ui.muted}> · 지금 화면</span>
+          </h3>
+          <TreeButtons
+            trees={truncated ? [] : inactive}
+            onPick={onPick}
+            empty={truncated ? '확대하면 보입니다.' : '지금 화면에는 없습니다.'}
+          />
+        </section>
+      )}
       <p className={ui.muted}>지도에서 나무를 누르면 정보를 보여 줍니다.</p>
     </div>
   );
