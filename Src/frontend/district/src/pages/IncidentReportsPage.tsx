@@ -14,6 +14,7 @@ import {
   type IncidentUpdate,
 } from '../api/incidentReports';
 import { useAsync } from '../api/useAsync';
+import { OrgFilter } from '../components/OrgFilter';
 import { Pagination } from '../components/Pagination';
 import { StatusTabs } from '../components/StatusTabs';
 import ui from '../components/ui.module.css';
@@ -39,18 +40,21 @@ function place(r: IncidentReport): string {
 }
 
 export function IncidentReportsPage() {
-  const { status, offset, selectedId, setStatus, setOffset, select } = useListParams<IncidentFilter>(FILTERS, 'unresolved');
-  const list = useAsync(() => listIncidentReports({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  const { status, offset, selectedId, setStatus, setOffset, select, organizationId, setOrganization } = useListParams<IncidentFilter>(FILTERS, 'unresolved');
+  const list = useAsync(() => listIncidentReports({ status, limit: PAGE_SIZE, offset, organizationId }), [status, offset, organizationId]);
   useOffsetFallback(list.data, offset, PAGE_SIZE, setOffset);
   const resolvedTab = status === 'resolved';
 
   return (
     <div className={ui.page}>
-      <header>
-        <h1 className={ui.title}>신고 처리</h1>
-        <p className={ui.lead}>
-          이 관리청에 배정된 이상 신고입니다. 신고는 공개되지 않고, 조치 결과는 신고자와 그 나무 돌보미에게만 알림으로 갑니다.
-        </p>
+      <header className={ui.pageHead}>
+        <div>
+          <h1 className={ui.title}>신고 처리</h1>
+          <p className={ui.lead}>
+            이 관리청에 배정된 이상 신고입니다. 신고는 공개되지 않고, 조치 결과는 신고자와 그 나무 돌보미에게만 알림으로 갑니다.
+          </p>
+        </div>
+        <OrgFilter value={organizationId} onChange={setOrganization} />
       </header>
 
       <StatusTabs label="신고 상태" tabs={TABS} value={status} onChange={setStatus} />

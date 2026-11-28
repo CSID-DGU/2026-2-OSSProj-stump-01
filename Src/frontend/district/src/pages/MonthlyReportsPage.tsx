@@ -14,6 +14,7 @@ import {
   type ReportStatus,
 } from '../api/monthlyReports';
 import { useAsync } from '../api/useAsync';
+import { OrgFilter } from '../components/OrgFilter';
 import { Pagination } from '../components/Pagination';
 import { PersonName } from '../components/PersonName';
 import { StatusTabs } from '../components/StatusTabs';
@@ -43,18 +44,21 @@ function dateRange(r: Pick<MonthlyReport, 'firstDate' | 'lastDate'>): string {
 }
 
 export function MonthlyReportsPage() {
-  const { status, offset, selectedId, setStatus, setOffset, select } = useListParams(STATUSES, 'submitted');
-  const list = useAsync(() => listMonthlyReports({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  const { status, offset, selectedId, setStatus, setOffset, select, organizationId, setOrganization } = useListParams(STATUSES, 'submitted');
+  const list = useAsync(() => listMonthlyReports({ status, limit: PAGE_SIZE, offset, organizationId }), [status, offset, organizationId]);
   useOffsetFallback(list.data, offset, PAGE_SIZE, setOffset);
   const approvedTab = status === 'approved';
 
   return (
     <div className={ui.page}>
-      <header>
-        <h1 className={ui.title}>월간 보고서 검토</h1>
-        <p className={ui.lead}>
-          승인하면 보고서의 활동 시간이 봉사시간으로 기록되고 돌보미에게 알림이 갑니다. 같은 보고서는 한 번만 인정됩니다.
-        </p>
+      <header className={ui.pageHead}>
+        <div>
+          <h1 className={ui.title}>월간 보고서 검토</h1>
+          <p className={ui.lead}>
+            승인하면 보고서의 활동 시간이 봉사시간으로 기록되고 돌보미에게 알림이 갑니다. 같은 보고서는 한 번만 인정됩니다.
+          </p>
+        </div>
+        <OrgFilter value={organizationId} onChange={setOrganization} />
       </header>
 
       <StatusTabs label="보고서 상태" tabs={TABS} value={status} onChange={setStatus} />

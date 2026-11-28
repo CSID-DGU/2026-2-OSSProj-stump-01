@@ -46,7 +46,7 @@ export function updateRentalItem(id: number, body: { name?: string; stock?: numb
   return api<RentalItem>(`/admin/rental-items/${id}`, { method: 'PATCH', body });
 }
 
-export function listRentals(opts: { status: RentalStatus; limit: number; offset: number }) {
+export function listRentals(opts: { status: RentalStatus; limit: number; offset: number; organizationId?: number | null }) {
   return api<Page<Rental>>('/admin/rentals', { query: opts });
 }
 

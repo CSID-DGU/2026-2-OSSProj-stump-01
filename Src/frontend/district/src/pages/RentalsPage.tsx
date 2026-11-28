@@ -14,6 +14,7 @@ import {
   type RentalItem,
 } from '../api/rentals';
 import { useAsync } from '../api/useAsync';
+import { OrgFilter } from '../components/OrgFilter';
 import { Pagination } from '../components/Pagination';
 import { PersonName } from '../components/PersonName';
 import { StatusTabs } from '../components/StatusTabs';
@@ -34,8 +35,8 @@ function errorText(err: unknown): string {
 }
 
 export function RentalsPage() {
-  const { status, offset, setStatus, setOffset } = useListParams(STATUSES, 'requested');
-  const rentals = useAsync(() => listRentals({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  const { status, offset, setStatus, setOffset, organizationId, setOrganization } = useListParams(STATUSES, 'requested');
+  const rentals = useAsync(() => listRentals({ status, limit: PAGE_SIZE, offset, organizationId }), [status, offset, organizationId]);
   useOffsetFallback(rentals.data, offset, PAGE_SIZE, setOffset);
   const items = useAsync(() => listRentalItems(), []);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -49,9 +50,12 @@ export function RentalsPage() {
 
   return (
     <div className={ui.page}>
-      <header>
-        <h1 className={ui.title}>물품 지급</h1>
-        <p className={ui.lead}>쿨토시·모자 같은 활동 물품은 지급만 하고 돌려받지 않습니다. 승인하면 재고가 줄고 신청자에게 알림이 갑니다.</p>
+      <header className={ui.pageHead}>
+        <div>
+          <h1 className={ui.title}>물품 지급</h1>
+          <p className={ui.lead}>쿨토시·모자 같은 활동 물품은 지급만 하고 돌려받지 않습니다. 승인하면 재고가 줄고 신청자에게 알림이 갑니다.</p>
+        </div>
+        <OrgFilter value={organizationId} onChange={setOrganization} />
       </header>
 
       {message && <p className={message.ok ? ui.success : ui.error}>{message.text}</p>}

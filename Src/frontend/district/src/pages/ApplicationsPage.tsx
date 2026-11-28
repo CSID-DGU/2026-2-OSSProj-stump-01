@@ -11,6 +11,7 @@ import {
   type ApplicationStatus,
 } from '../api/applications';
 import { useAsync } from '../api/useAsync';
+import { OrgFilter } from '../components/OrgFilter';
 import { Pagination } from '../components/Pagination';
 import { PersonName } from '../components/PersonName';
 import { StatusTabs } from '../components/StatusTabs';
@@ -32,15 +33,18 @@ const BADGE: Record<ApplicationStatus, string> = {
 };
 
 export function ApplicationsPage() {
-  const { status, offset, selectedId, setStatus, setOffset, select } = useListParams(STATUSES, 'pending');
-  const list = useAsync(() => listApplications({ status, limit: PAGE_SIZE, offset }), [status, offset]);
+  const { status, offset, selectedId, setStatus, setOffset, select, organizationId, setOrganization } = useListParams(STATUSES, 'pending');
+  const list = useAsync(() => listApplications({ status, limit: PAGE_SIZE, offset, organizationId }), [status, offset, organizationId]);
   useOffsetFallback(list.data, offset, PAGE_SIZE, setOffset);
 
   return (
     <div className={ui.page}>
-      <header>
-        <h1 className={ui.title}>돌보미 신청 심사</h1>
-        <p className={ui.lead}>대기 중인 신청은 오래 기다린 순서로 보입니다. 결과는 신청자에게 알림으로 갑니다.</p>
+      <header className={ui.pageHead}>
+        <div>
+          <h1 className={ui.title}>돌보미 신청 심사</h1>
+          <p className={ui.lead}>대기 중인 신청은 오래 기다린 순서로 보입니다. 결과는 신청자에게 알림으로 갑니다.</p>
+        </div>
+        <OrgFilter value={organizationId} onChange={setOrganization} />
       </header>
 
       <StatusTabs label="신청 상태" tabs={TABS} value={status} onChange={setStatus} />

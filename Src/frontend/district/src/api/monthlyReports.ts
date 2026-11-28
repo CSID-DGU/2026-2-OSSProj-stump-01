@@ -48,7 +48,7 @@ export const VERIFICATION_LABEL: Record<Verification, string> = {
   photo: '사진',
 };
 
-export function listMonthlyReports(opts: { status: ReportStatus; limit: number; offset: number }) {
+export function listMonthlyReports(opts: { status: ReportStatus; limit: number; offset: number; organizationId?: number | null }) {
   return api<Page<MonthlyReport>>('/admin/monthly-reports', { query: opts });
 }
 

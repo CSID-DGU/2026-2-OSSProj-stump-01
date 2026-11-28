@@ -43,7 +43,7 @@ export const INCIDENT_FILTER_LABEL: Record<IncidentFilter, string> = {
   ...INCIDENT_STATUS_LABEL,
 };
 
-export function listIncidentReports(opts: { status: IncidentFilter; limit: number; offset: number }) {
+export function listIncidentReports(opts: { status: IncidentFilter; limit: number; offset: number; organizationId?: number | null }) {
   return api<Page<IncidentReport>>('/admin/incident-reports', { query: opts });
 }
 
