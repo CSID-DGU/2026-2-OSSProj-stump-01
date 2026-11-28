@@ -63,10 +63,14 @@ const inBbox = (p: LatLng, [minLng, minLat, maxLng, maxLat]: Bbox) =>
  * 처리 중(확인 필요·현장 확인) 신고가 있는 나무. 지도를 넓게 보면 GET /trees가 일부 나무만 주므로(truncated)
  * 급한 나무가 빠지지 않게 신고 처리 큐에서 따로 받아 지도에 더한다. 자세한 정보는 누를 때 GET /trees/{id}로 받는다.
  */
-async function openReportTrees(): Promise<Tree[]> {
+type OpenReports = { trees: Tree[]; reportIds: Map<number, number[]> }; // reportIds: 나무 id → 처리 중 신고 id들
+
+async function openReportTrees(): Promise<OpenReports> {
   const { items } = await listIncidentReports({ status: 'unresolved', limit: OPEN_REPORT_LIMIT, offset: 0 });
   const byTree = new Map<number, Tree>();
+  const reportIds = new Map<number, number[]>();
   for (const r of items) {
+    reportIds.set(r.tree.id, [...(reportIds.get(r.tree.id) ?? []), r.id]);
     if (byTree.has(r.tree.id)) continue;
     byTree.set(r.tree.id, {
       id: r.tree.id,
@@ -82,7 +86,7 @@ async function openReportTrees(): Promise<Tree[]> {
       careGap: null,
     });
   }
-  return [...byTree.values()];
+  return { trees: [...byTree.values()], reportIds };
 }
 
 export function MapPage() {
@@ -95,12 +99,13 @@ export function MapPage() {
   const [hidden, setHidden] = useState<Set<MarkerKind>>(new Set());
   const [selected, setSelected] = useState<Tree | null>(null);
   const [bbox, setBbox] = useState<Bbox | null>(null);
-  const [reportTrees, setReportTrees] = useState<Tree[]>([]);
+  const [openReports, setOpenReports] = useState<OpenReports>({ trees: [], reportIds: new Map() });
+  const reportTrees = openReports.trees;
 
   useEffect(() => {
     openReportTrees()
-      .then(setReportTrees)
-      .catch(() => setReportTrees([])); // 못 받아도 지도는 GET /trees 나무만으로 보여 준다
+      .then(setOpenReports)
+      .catch(() => undefined); // 못 받아도 지도는 GET /trees 나무만으로 보여 준다
   }, []);
 
   // 누른 나무의 자세한 정보(관리번호·동 등)를 다시 받는다
@@ -135,8 +140,11 @@ export function MapPage() {
   const setParamsRef = useRef(setParams);
   setParamsRef.current = setParams;
   useEffect(() => {
-    if (!start || !box.current) return;
-    const handle = createTreeMap<Tree>(box.current, {
+    const el = box.current;
+    if (!start || !el) return;
+    // 다른 화면으로 넘어간 뒤 지도가 늦게 범위를 알려 와도 주소(/map?lat=…)로 되돌리지 않게 막는다
+    let alive = true;
+    const handle = createTreeMap<Tree>(el, {
       kakaoKey: KAKAO_KEY,
       center: start.center,
       zoom: start.zoom,
@@ -144,6 +152,7 @@ export function MapPage() {
       // 같은 나무를 다시 누르면 이미 받아 둔 자세한 정보를 그대로 둔다
       onSelect: (tree) => setSelected((prev) => (prev?.id === tree.id ? prev : tree)),
       onBoundsChange: ({ bbox, zoom, center }) => {
+        if (!alive || !el.isConnected) return;
         setParamsRef.current(
           (prev) => {
             const next = new URLSearchParams(prev);
@@ -168,6 +177,7 @@ export function MapPage() {
     });
     map.current = handle;
     return () => {
+      alive = false;
       handle.destroy();
       map.current = null;
     };
@@ -254,7 +264,7 @@ export function MapPage() {
         </div>
         <aside className={styles.side} aria-live="polite">
           {selected ? (
-            <TreeInfo tree={selected} onClose={() => setSelected(null)} />
+            <TreeInfo tree={selected} reportIds={openReports.reportIds.get(selected.id) ?? []} onClose={() => setSelected(null)} />
           ) : (
             <UrgentList reports={reportTrees} inactive={inactiveInView} truncated={truncated} onPick={pick} />
           )}
@@ -319,7 +329,7 @@ function TreeButtons({ trees, onPick, empty }: { trees: Tree[]; onPick: (tree: T
   );
 }
 
-function TreeInfo({ tree, onClose }: { tree: Tree; onClose: () => void }) {
+function TreeInfo({ tree, reportIds, onClose }: { tree: Tree; reportIds: number[]; onClose: () => void }) {
   const kind = markerKind(tree);
   return (
     <div className={styles.info}>
@@ -347,7 +357,13 @@ function TreeInfo({ tree, onClose }: { tree: Tree; onClose: () => void }) {
         <dt>돌보미</dt>
         <dd>{tree.caregiverCount > 0 ? `${tree.caregiverCount}명` : '없음'}</dd>
       </dl>
-      {tree.hasOpenReport && (
+      {/* 그 신고를 바로 연다(신고 처리 화면은 주소의 id로 상세를 연다). 한 나무에 여러 건이면 건마다 버튼 */}
+      {reportIds.map((id) => (
+        <Link key={id} to={`/incident-reports?id=${id}`} className={`${ui.button} ${ui.primary}`}>
+          {reportIds.length > 1 ? `신고 #${id} 처리로 가기` : '신고 처리로 가기'}
+        </Link>
+      ))}
+      {tree.hasOpenReport && reportIds.length === 0 && (
         <Link to="/incident-reports" className={`${ui.button} ${ui.primary}`}>
           신고 처리로 가기
         </Link>

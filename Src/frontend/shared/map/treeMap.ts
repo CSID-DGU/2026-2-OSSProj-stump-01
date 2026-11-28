@@ -144,7 +144,9 @@ export function createTreeMap<T extends MapTree>(el: HTMLElement, options: TreeM
   }
 
   function report() {
-    if (!engine) return;
+    // 지운 뒤나 틀이 페이지에서 빠진 뒤에 늦게 온 idle은 알리지 않는다.
+    // 다른 화면으로 넘어갈 때 React는 틀을 먼저 떼고 effect 정리는 나중에 하므로, 그 사이 알림이 주소를 되돌리지 않게 한다
+    if (!engine || destroyed || !el.isConnected) return;
     const bbox = engine.getBounds();
     const center = { lng: (bbox[0] + bbox[2]) / 2, lat: (bbox[1] + bbox[3]) / 2 };
     options.onBoundsChange?.({ bbox, zoom: engine.getZoom(), center });
@@ -155,6 +157,7 @@ export function createTreeMap<T extends MapTree>(el: HTMLElement, options: TreeM
     engine = next;
     if (next.kind === 'osm') attribution.textContent = `${OSM_ATTRIBUTION} · ${TREE_DATA_ATTRIBUTION}`;
     next.onIdle(() => {
+      if (destroyed) return;
       draw();
       report();
     });
