@@ -16,6 +16,7 @@ export function AdminLayout() {
 
   const menu = [
     { to: '/', label: '한눈에 보기', count: null, end: true },
+    { to: '/map', label: '나무 지도', count: null },
     { to: '/applications', label: '돌보미 신청 심사', count: data?.applications.pending },
     { to: '/monthly-reports', label: '월간 보고서 검토', count: data?.monthlyReports.pending },
     { to: '/rentals', label: '물품 지급', count: data?.rentals.requested },
