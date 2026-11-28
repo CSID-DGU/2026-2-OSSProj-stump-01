@@ -14,7 +14,8 @@
   | `cared` 돌보미 나무 | `careGap = null` | `--color-primary` |
   | `uncared` 돌보미 없는 나무 | `careGap = no_caregiver` (관리 사각지대) | `--color-text-faint` |
 
-- **묶음(클러스터)**: 화면에서 48px 칸 안의 나무를 하나로 묶어 숫자로 보여 준다. 테두리 색은 안에 든 가장 급한 종류다. 누르면 그 자리로 두 단계 확대하고, 줌 17부터는 묶지 않는다. 라이브러리 없이 직접 묶는다(`clusterByGrid`).
+- **급한 나무 강조**: 미처리 신고·활동이 끊긴 나무는 점을 더 크게 그리고 둘레에 퍼지는 고리를 둘러 멀리서도 보이게 한다. 움직임을 줄이도록 설정한 기기(`prefers-reduced-motion`)에서는 고리를 멈춘다. 고른 나무는 가장 크게, 검은 테두리로 보인다.
+- **묶음(클러스터)**: 화면에서 48px 칸 안의 나무를 하나로 묶어 숫자로 보여 준다. 테두리 색은 안에 든 가장 급한 종류이고, 안에 미처리 신고·활동이 끊긴 나무가 있으면 모서리 배지에 그 수를 단다. 누르면 그 자리로 두 단계 확대하고, 줌 17부터는 묶지 않는다. 라이브러리 없이 직접 묶는다(`clusterByGrid`).
 - **출처**: 가로수 데이터가 공공누리 제4유형(출처표시)이라 지도 위에 항상 출처를 보여 준다. OSM 바탕이면 OSM 출처도 같이 보여 준다.
 - **모바일·데스크탑**: 틀 요소 크기에 맞춰 그린다. OSM 바탕은 손가락 끌기(포인터 이벤트)·휠·+/− 버튼으로 움직인다.
 
@@ -47,11 +48,19 @@ useEffect(() => {
 // 고른 나무 강조
 useEffect(() => map.current?.setSelected(selected?.id ?? null), [selected]);
 
+// 목록에서 나무를 고르면 그 나무로 옮겨 가기(적어도 줌 17까지 확대)
+function pick(tree: Tree) {
+  setSelected(tree);
+  map.current?.focus(tree.location);
+}
+
 return <div ref={box} style={{ height: 480 }} />; // 이 안에는 React 자식을 두지 않는다
 ```
 
 - 나무 형식은 `MapTree`(id, name, location, caregiverCount, hasOpenReport, careGap)를 가진 아무 형이면 된다. GET /trees 응답을 그대로 넘기면 된다.
 - 마커 종류를 화면마다 다르게 정하려면 `kindOf` 옵션을 넘긴다. 한쪽 화면만을 위해 이 폴더를 고치지 않는다(`CLAUDE.md` 경계 규칙).
+- `handle`이 하는 일: `setTrees(나무 배열)`, `setSelected(id | null)`, `setCenter(위치)`, `focus(위치, 최소 줌)`, `destroy()`.
+- 다른 화면으로 넘어갈 때 지도 틀이 페이지에서 빠지면 그 뒤로는 `onBoundsChange`를 부르지 않는다. 늦게 온 범위 알림이 주소(`?lat=…`)를 바꿔 이전 화면으로 되돌리는 일을 막기 위해서다.
 - 범례는 `<span class="tm-dot tm-dot--report" />`처럼 같은 클래스를 쓰면 지도와 같은 모양이 나온다. 이름은 `MARKER_LABEL`.
 
 ### 각 웹에서 할 설정
@@ -59,6 +68,7 @@ return <div ref={box} style={{ height: 480 }} />; // 이 안에는 React 자식�
 - **카카오맵 키**: `Src/.env`의 `VITE_KAKAO_MAP_KEY`. Vite 설정에 `envDir: '../..'`를 둔다.
   카카오 개발자 콘솔 → 플랫폼 → Web → 사이트 도메인에 그 웹의 주소를 등록해야 한다(로컬: 시민 `http://localhost:5173`, 구청 `http://localhost:5174`).
 - **개발 서버 파일 허용**: 이 폴더는 각 웹 폴더 밖이라 Vite 설정에 `server.fs.allow: ['.', '../shared']`를 둔다(구청 웹 `vite.config.ts` 참고).
+- 이 폴더 파일을 고친 뒤 화면이 예전 그대로이거나 "is not a function" 오류가 나면 개발 서버(`npm run dev`)를 다시 켠다. 웹 폴더 밖 파일은 바뀐 것을 늦게 알아챌 때가 있다.
 
 ## 파일
 
