@@ -11,6 +11,7 @@ export type Tree = MapTree & {
   district: string;
   dong: string | null;
   roadName: string | null;
+  address?: string | null; // 지번 주소. 상세(GET /trees/{id})에만 있다
 };
 
 export type TreeList = { trees: Tree[]; truncated: boolean };

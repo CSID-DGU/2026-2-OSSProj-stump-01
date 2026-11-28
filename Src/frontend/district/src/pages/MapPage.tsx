@@ -340,7 +340,10 @@ function TreeInfo({ tree, onClose }: { tree: Tree; onClose: () => void }) {
         <dt>수종</dt>
         <dd>{tree.species}</dd>
         <dt>위치</dt>
-        <dd>{[tree.district, tree.dong, tree.roadName].filter(Boolean).join(' ') || '-'}</dd>
+        <dd>
+          {[tree.district, tree.dong, tree.roadName].filter(Boolean).join(' ') || '-'}
+          {tree.address && <div className={ui.muted}>{tree.address}</div>}
+        </dd>
         <dt>돌보미</dt>
         <dd>{tree.caregiverCount > 0 ? `${tree.caregiverCount}명` : '없음'}</dd>
       </dl>
