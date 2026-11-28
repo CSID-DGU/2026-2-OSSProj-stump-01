@@ -23,8 +23,8 @@
 /* ── 나무 점 ── */
 .tm-dot {
   display: inline-block;
-  width: 12px;
-  height: 12px;
+  width: 18px;
+  height: 18px;
   padding: 0;
   border: 2px solid #fff;
   border-radius: 50%;
@@ -40,8 +40,8 @@
   background: var(--tm-report);
 }
 .tm-dot--inactive {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-width: 3px;
   background: var(--tm-inactive);
 }
@@ -72,18 +72,18 @@
   }
 }
 .tm-dot--uncared {
-  width: 9px;
-  height: 9px;
-  border-width: 1px;
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
   background: var(--tm-uncared);
-  opacity: 0.75;
+  opacity: 0.85;
 }
 .tm-root .tm-dot.is-selected {
   animation: none;
 }
 .tm-dot.is-selected {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-width: 3px;
   opacity: 1;
   box-shadow: 0 0 0 3px var(--tm-ink);
