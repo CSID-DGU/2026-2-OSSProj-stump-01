@@ -19,8 +19,9 @@ npm run lint       # 코드 규칙 검사
 npm run build      # dist/로 빌드
 ```
 
-- 개발 서버는 `/admin`, `/auth`, `/weather`, `/volunteer-hours` 요청을 API 서버로 넘긴다(`vite.config.ts`의 proxy). 그래서 화면 코드는 `fetch('/admin/dashboard')`처럼 주소 없이 경로만 쓴다.
+- 개발 서버는 `/admin`, `/auth`, `/trees`, `/weather`, `/volunteer-hours` 요청을 API 서버로 넘긴다(`vite.config.ts`의 proxy). 그래서 화면 코드는 `fetch('/admin/dashboard')`처럼 주소 없이 경로만 쓴다.
 - API 서버 주소를 바꾸려면 이 폴더에 `.env`를 만들고 `API_SERVER=http://주소:포트`를 넣는다.
+- 나무 지도의 카카오맵 키는 시민 웹과 같은 `Src/.env`의 `VITE_KAKAO_MAP_KEY`를 쓴다. 카카오 개발자 콘솔에 `http://localhost:5174`가 등록돼 있어야 하고, 키가 없으면 OSM 임시 지도로 뜬다(`../shared/map/README.md`).
 
 ## 로그인
 
@@ -54,9 +55,9 @@ src/
   api/                 API 호출. client.ts(토큰·에러 처리 공통), 화면별 API 파일
   auth/                로그인 상태, 로그인 화면
   layout/              왼쪽 메뉴 + 화면 틀
-  pages/               화면. 한눈에 보기(#28), 신청 심사(#74), 보고서 검토(#75), 물품 지급(#76), 신고 처리(#29), 상부 보고(#78)
+  pages/               화면. 한눈에 보기(#28), 나무 지도(#27), 신청 심사(#74), 보고서 검토(#75), 물품 지급(#76), 신고 처리(#29), 상부 보고(#78)
   lib/                 화면과 분리한 함수(날짜·시간 표시 등)
 ```
 
 - 디자인 토큰은 팀 시안(2026-11)의 구청 화면 색·글꼴을 옮긴 값이다. Figma 디자인 가이드(#36)가 확정되면 `global.css` 값만 바꾼다.
-- 시민 웹과 같이 쓸 컴포넌트(지도 등)는 `Src/frontend/shared/`에 둔다(#27).
+- 시민 웹과 같이 쓸 컴포넌트는 `Src/frontend/shared/`에 둔다. 공용 나무 지도는 `shared/map`(#27).

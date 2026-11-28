@@ -1,0 +1,222 @@
+/* 공용 나무 지도(#27) 모양. 클래스 이름은 tm- 로 시작해 두 웹의 CSS와 겹치지 않게 한다.
+   색은 각 웹의 디자인 토큰을 먼저 쓰고, 없으면 팀 시안 값을 쓴다.
+   범례를 그릴 때는 <span class="tm-dot tm-dot--report"> 처럼 같은 클래스를 쓰면 지도와 같은 모양이 나온다. */
+/* 색 변수는 :root에 둬서 지도 밖 범례에서도 같은 색이 나오게 한다 */
+:root {
+  --tm-report: var(--color-danger, #b8432e);
+  --tm-inactive: var(--color-highlight, #e9b824);
+  --tm-cared: var(--color-primary, #3f7a4c);
+  --tm-uncared: var(--color-text-faint, #8e988f);
+  --tm-ink: var(--color-text, #1a221c);
+}
+.tm-root {
+  position: relative;
+  overflow: hidden;
+  min-height: 240px;
+  background: #eef0ea;
+}
+.tm-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── 나무 점 ── */
+.tm-dot {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--tm-cared);
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.tm-dot--report {
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
+  background: var(--tm-report);
+}
+.tm-dot--inactive {
+  width: 20px;
+  height: 20px;
+  border-width: 3px;
+  background: var(--tm-inactive);
+}
+/* 지도 위의 급한 나무는 둘레에 퍼지는 고리를 둘러 멀리서도 눈에 띄게 한다(범례 점은 제외) */
+.tm-root .tm-dot--report,
+.tm-root .tm-dot--inactive {
+  animation: tm-pulse 1.8s ease-out infinite;
+}
+.tm-root .tm-dot--report {
+  --tm-pulse: rgb(184 67 46 / 0.55);
+}
+.tm-root .tm-dot--inactive {
+  --tm-pulse: rgb(233 184 36 / 0.6);
+}
+@keyframes tm-pulse {
+  0% {
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 0 var(--tm-pulse);
+  }
+  100% {
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 12px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-root .tm-dot--report,
+  .tm-root .tm-dot--inactive {
+    animation: none;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 5px var(--tm-pulse);
+  }
+}
+.tm-dot--uncared {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+  background: var(--tm-uncared);
+  opacity: 0.85;
+}
+.tm-root .tm-dot.is-selected {
+  animation: none;
+}
+.tm-dot.is-selected {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+  opacity: 1;
+  box-shadow: 0 0 0 3px var(--tm-ink);
+}
+.tm-dot:focus-visible,
+.tm-cluster:focus-visible {
+  outline: 3px solid var(--tm-ink);
+  outline-offset: 2px;
+}
+
+/* ── 묶음: 안에 든 가장 급한 종류의 색 테두리 ── */
+.tm-cluster {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  border: 3px solid var(--tm-cared);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--tm-ink);
+  font: 700 12px/1 var(--font-body, system-ui, sans-serif);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+/* 묶음 안 급한 나무 수 */
+.tm-cluster {
+  position: relative;
+}
+.tm-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--tm-report);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+.tm-badge--inactive {
+  background: var(--tm-inactive);
+  color: var(--tm-ink);
+}
+.tm-cluster--m {
+  min-width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+.tm-cluster--l {
+  min-width: 44px;
+  height: 44px;
+  font-size: 14px;
+}
+.tm-cluster--report {
+  border-color: var(--tm-report);
+}
+.tm-cluster--inactive {
+  border-color: var(--tm-inactive);
+}
+.tm-cluster--uncared {
+  border-color: var(--tm-uncared);
+}
+
+/* ── 출처(공공누리 제4유형: 출처표시) ── */
+.tm-attribution {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 20;
+  max-width: 100%;
+  padding: 2px 6px;
+  background: rgb(255 255 255 / 0.85);
+  color: #444;
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+}
+/* 카카오맵은 왼쪽 아래에 자기 로고를 그리므로 출처를 오른쪽으로 옮긴다 */
+.tm-root:not(:has(.tm-osm)) .tm-attribution {
+  left: auto;
+  right: 0;
+  max-width: calc(100% - 110px); /* 좁은 화면에서 카카오 축척 표시를 가리지 않게 */
+}
+
+/* ── OSM 임시 지도 ── */
+.tm-osm {
+  cursor: grab;
+  touch-action: none; /* 휴대폰에서 끌기가 페이지 스크롤로 넘어가지 않게 */
+  user-select: none;
+}
+.tm-osm.is-dragging {
+  cursor: grabbing;
+}
+.tm-osm-pane,
+.tm-osm-tiles,
+.tm-osm-markers {
+  position: absolute;
+  inset: 0;
+}
+.tm-osm-tiles img {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  /* 배경 채도를 낮춰 나무 점이 도드라지게 한다 */
+  filter: grayscale(0.7) contrast(0.9) brightness(1.05);
+}
+.tm-osm-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+}
+.tm-osm-zoom {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+}
+.tm-osm-zoom button {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.tm-osm-zoom button:last-child {
+  border-bottom: 0;
+}

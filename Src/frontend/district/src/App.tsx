@@ -7,6 +7,7 @@ import { ApplicationsPage } from './pages/ApplicationsPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ExportsPage } from './pages/ExportsPage';
 import { IncidentReportsPage } from './pages/IncidentReportsPage';
+import { MapPage } from './pages/MapPage';
 import { MonthlyReportsPage } from './pages/MonthlyReportsPage';
 import { RentalsPage } from './pages/RentalsPage';
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route element={<RequireLogin />}>
             <Route element={<AdminLayout />}>
               <Route index element={<DashboardPage />} />
+              <Route path="map" element={<MapPage />} />
               <Route path="applications" element={<ApplicationsPage />} />
               <Route path="monthly-reports" element={<MonthlyReportsPage />} />
               <Route path="rentals" element={<RentalsPage />} />
