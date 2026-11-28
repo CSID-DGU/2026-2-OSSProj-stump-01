@@ -30,6 +30,7 @@ const SEOUL_BBOX: Bbox = [126.76, 37.41, 127.19, 37.72]; // 서울 전체. 관�
 const DEFAULT_ZOOM = 16; // 처음 확대 단계(OSM 줌, 카카오 level 4 ≈ 동 하나). 15부터는 도심에서 나무가 2,000그루를 넘는다
 const AGENCY_SAMPLE = 300; // 관리청 가운데를 잡을 때 받아 보는 나무 수
 const OPEN_REPORT_LIMIT = 200; // 처리 중 신고를 한 번에 받는 수(API 최대값)
+const DETAIL_CONCURRENCY = 6; // 신고 나무 상세(이름 번호·관리번호)를 동시에 받는 수
 
 const KIND_HINT: Record<MarkerKind, string> = {
   report: '조치 완료 전인 이상 신고가 있음',
@@ -89,6 +90,20 @@ async function openReportTrees(): Promise<OpenReports> {
   return { trees: [...byTree.values()], reportIds };
 }
 
+/**
+ * 신고 처리 큐의 나무에는 길 안 번호·관리번호가 없어서 목록에서 나무를 구분하기 어렵다.
+ * GET /trees/{id}로 상세를 받아 바꾼다(한 번에 DETAIL_CONCURRENCY개씩). 못 받은 나무는 그대로 둔다.
+ */
+async function withDetails(trees: Tree[]): Promise<Tree[]> {
+  const result = [...trees];
+  for (let i = 0; i < result.length; i += DETAIL_CONCURRENCY) {
+    const chunk = result.slice(i, i + DETAIL_CONCURRENCY);
+    const details = await Promise.all(chunk.map((t) => getTree(t.id).catch(() => t)));
+    details.forEach((d, j) => (result[i + j] = d));
+  }
+  return result;
+}
+
 export function MapPage() {
   const [params, setParams] = useSearchParams();
   const { data: dashboard } = useDashboard({});
@@ -103,9 +118,18 @@ export function MapPage() {
   const reportTrees = openReports.trees;
 
   useEffect(() => {
+    let cancelled = false;
     openReportTrees()
-      .then(setOpenReports)
+      .then(async (open) => {
+        if (cancelled) return;
+        setOpenReports(open); // 위치는 바로 보여 주고
+        const trees = await withDetails(open.trees); // 이름 번호·관리번호는 받는 대로 바꾼다
+        if (!cancelled) setOpenReports({ ...open, trees });
+      })
       .catch(() => undefined); // 못 받아도 지도는 GET /trees 나무만으로 보여 준다
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 누른 나무의 자세한 정보(관리번호·동 등)를 다시 받는다
@@ -334,7 +358,8 @@ function TreeButtons({ trees, onPick, empty }: { trees: Tree[]; onPick: (tree: T
       {trees.map((t) => (
         <li key={t.id}>
           <button type="button" className={styles.urgentItem} onClick={() => onPick(t)}>
-            {t.name}
+            <span>{t.name}</span>
+            {t.code && <span className={styles.urgentCode}>{t.code}</span>}
           </button>
         </li>
       ))}
@@ -365,7 +390,17 @@ function TreeInfo({ tree, reportIds, onClose }: { tree: Tree; reportIds: number[
         <dt>위치</dt>
         <dd>
           {[tree.district, tree.dong, tree.roadName].filter(Boolean).join(' ') || '-'}
-          {tree.address && <div className={ui.muted}>{tree.address}</div>}
+          {tree.address && (
+            <div className={ui.muted}>
+              {/* 번지("60-9")는 하이픈 뒤에서도 줄이 바뀌므로 띄어쓰기 단위로 묶어 그 안에서는 끊지 않는다 */}
+              {tree.address.split(' ').map((word, i) => (
+                <span key={i} className={styles.addressWord}>
+                  {i > 0 && ' '}
+                  {word}
+                </span>
+              ))}
+            </div>
+          )}
         </dd>
         <dt>돌보미</dt>
         <dd>{tree.caregiverCount > 0 ? `${tree.caregiverCount}명` : '없음'}</dd>

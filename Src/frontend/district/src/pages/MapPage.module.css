@@ -124,3 +124,21 @@
   color: #fff;
   background: var(--color-primary-dark);
 }
+
+.urgentItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.urgentCode {
+  flex: none;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 주소는 "60-9"처럼 번지 중간에서 끊기지 않게 단어 단위로 줄을 바꾼다 */
+.addressWord {
+  white-space: nowrap;
+}
