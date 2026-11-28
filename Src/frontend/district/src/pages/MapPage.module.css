@@ -71,3 +71,39 @@
   gap: 6px;
   margin: 0;
 }
+
+/* 처리가 필요한 나무 목록 */
+.urgent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.urgentTitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: var(--text-sm);
+}
+.urgentCount {
+  font-weight: 700;
+}
+.urgentList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.urgentItem {
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.urgentItem:hover {
+  background: var(--color-bg);
+}

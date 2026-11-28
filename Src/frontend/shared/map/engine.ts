@@ -22,6 +22,8 @@ export interface MapEngine {
   setCenter(p: LatLng): void;
   /** p를 가운데 두고 by 단계 확대 */
   zoomInAt(p: LatLng, by: number): void;
+  /** p를 가운데 두고 zoom 단계로 맞춘다 */
+  setView(p: LatLng, zoom: number): void;
   /** 화면 크기가 고정된 HTML 요소를 좌표에 붙인다(요소의 가운데가 좌표에 온다) */
   addMarker(p: LatLng, el: HTMLElement, zIndex: number): MarkerHandle;
   /** 끌기·확대가 끝나 지도가 멈추면 부른다 */

@@ -108,6 +108,10 @@ export async function createKakaoEngine(el: HTMLElement, appKey: string, center:
       map.setCenter(toLatLng(p));
       map.setLevel(Math.max(MIN_LEVEL, map.getLevel() - by), { anchor: toLatLng(p) });
     },
+    setView(p, z) {
+      map.setLevel(toLevel(clampZoom(z)));
+      map.setCenter(toLatLng(p));
+    },
     addMarker(p, content, zIndex): MarkerHandle {
       // clickable: 마커를 누를 때 지도 끌기·클릭이 같이 일어나지 않게 한다
       const overlay = new maps.CustomOverlay({ position: toLatLng(p), content, xAnchor: 0.5, yAnchor: 0.5, zIndex, clickable: true });

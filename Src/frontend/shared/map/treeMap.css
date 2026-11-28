@@ -34,14 +34,42 @@
   vertical-align: middle;
 }
 .tm-dot--report {
-  width: 16px;
-  height: 16px;
+  width: 22px;
+  height: 22px;
+  border-width: 3px;
   background: var(--tm-report);
 }
 .tm-dot--inactive {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
   background: var(--tm-inactive);
+}
+/* 지도 위의 급한 나무는 둘레에 퍼지는 고리를 둘러 멀리서도 눈에 띄게 한다(범례 점은 제외) */
+.tm-root .tm-dot--report,
+.tm-root .tm-dot--inactive {
+  animation: tm-pulse 1.8s ease-out infinite;
+}
+.tm-root .tm-dot--report {
+  --tm-pulse: rgb(184 67 46 / 0.55);
+}
+.tm-root .tm-dot--inactive {
+  --tm-pulse: rgb(233 184 36 / 0.6);
+}
+@keyframes tm-pulse {
+  0% {
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 0 var(--tm-pulse);
+  }
+  100% {
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 12px transparent;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tm-root .tm-dot--report,
+  .tm-root .tm-dot--inactive {
+    animation: none;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25), 0 0 0 5px var(--tm-pulse);
+  }
 }
 .tm-dot--uncared {
   width: 9px;
@@ -49,6 +77,9 @@
   border-width: 1px;
   background: var(--tm-uncared);
   opacity: 0.75;
+}
+.tm-root .tm-dot.is-selected {
+  animation: none;
 }
 .tm-dot.is-selected {
   width: 22px;
@@ -77,6 +108,29 @@
   font: 700 12px/1 var(--font-body, system-ui, sans-serif);
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
   cursor: pointer;
+}
+/* 묶음 안 급한 나무 수 */
+.tm-cluster {
+  position: relative;
+}
+.tm-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  background: var(--tm-report);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+.tm-badge--inactive {
+  background: var(--tm-inactive);
+  color: var(--tm-ink);
 }
 .tm-cluster--m {
   min-width: 36px;

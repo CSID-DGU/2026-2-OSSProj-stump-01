@@ -193,6 +193,14 @@ export function MapPage() {
     return c;
   }, [trees]);
 
+  // 오른쪽 목록: 미처리 신고 나무(관리청 전체)와 지금 화면에서 활동이 끊긴 나무
+  const inactiveInView = useMemo(() => trees.filter((t) => markerKind(t) === 'inactive'), [trees]);
+
+  function pick(tree: Tree) {
+    setSelected(tree);
+    map.current?.focus(tree.location);
+  }
+
   function toggle(kind: MarkerKind) {
     setHidden((prev) => {
       const next = new Set(prev);
@@ -245,10 +253,69 @@ export function MapPage() {
           {!start && <p className={styles.loading}>관리청 위치를 찾는 중…</p>}
         </div>
         <aside className={styles.side} aria-live="polite">
-          {selected ? <TreeInfo tree={selected} onClose={() => setSelected(null)} /> : <p className={ui.muted}>나무를 누르면 정보를 보여 줍니다.</p>}
+          {selected ? (
+            <TreeInfo tree={selected} onClose={() => setSelected(null)} />
+          ) : (
+            <UrgentList reports={reportTrees} inactive={inactiveInView} truncated={truncated} onPick={pick} />
+          )}
         </aside>
       </div>
     </div>
+  );
+}
+
+/** 처리가 필요한 나무 목록. 누르면 지도가 그 나무로 옮겨 가고 정보를 보여 준다 */
+function UrgentList({
+  reports,
+  inactive,
+  truncated,
+  onPick,
+}: {
+  reports: Tree[];
+  inactive: Tree[];
+  truncated: boolean;
+  onPick: (tree: Tree) => void;
+}) {
+  return (
+    <div className={styles.urgent}>
+      <h2 className={ui.panelTitle}>처리가 필요한 나무</h2>
+      <section>
+        <h3 className={styles.urgentTitle}>
+          <span className="tm-dot tm-dot--report" aria-hidden="true" />
+          미처리 신고 <span className={styles.urgentCount}>{reports.length}</span>
+          <span className={ui.muted}> · 관리청 전체</span>
+        </h3>
+        <TreeButtons trees={reports} onPick={onPick} empty="처리 중인 신고가 없습니다." />
+      </section>
+      <section>
+        <h3 className={styles.urgentTitle}>
+          <span className="tm-dot tm-dot--inactive" aria-hidden="true" />
+          활동이 끊긴 나무 <span className={styles.urgentCount}>{truncated ? '-' : inactive.length}</span>
+          <span className={ui.muted}> · 지금 화면</span>
+        </h3>
+        <TreeButtons
+          trees={truncated ? [] : inactive}
+          onPick={onPick}
+          empty={truncated ? '확대하면 보입니다.' : '지금 화면에는 없습니다.'}
+        />
+      </section>
+      <p className={ui.muted}>지도에서 나무를 누르면 정보를 보여 줍니다.</p>
+    </div>
+  );
+}
+
+function TreeButtons({ trees, onPick, empty }: { trees: Tree[]; onPick: (tree: Tree) => void; empty: string }) {
+  if (trees.length === 0) return <p className={ui.muted}>{empty}</p>;
+  return (
+    <ul className={styles.urgentList}>
+      {trees.map((t) => (
+        <li key={t.id}>
+          <button type="button" className={styles.urgentItem} onClick={() => onPick(t)}>
+            {t.name}
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

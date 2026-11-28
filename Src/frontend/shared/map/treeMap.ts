@@ -44,6 +44,8 @@ export type TreeMapHandle<T extends MapTree> = {
   setTrees(trees: T[]): void;
   setSelected(id: number | null): void;
   setCenter(p: LatLng): void;
+  /** p로 옮기고 적어도 minZoom까지 확대한다(목록에서 나무를 골랐을 때) */
+  focus(p: LatLng, minZoom?: number): void;
   destroy(): void;
 };
 
@@ -88,6 +90,14 @@ export function createTreeMap<T extends MapTree>(el: HTMLElement, options: TreeM
     const size = count >= 100 ? 'l' : count >= 10 ? 'm' : 's';
     node.className = `tm-cluster tm-cluster--${kind} tm-cluster--${size}`;
     node.textContent = count > CLUSTER_MAX_LABEL ? `${CLUSTER_MAX_LABEL}+` : String(count);
+    // 안에 급한 나무(미처리 신고·활동 끊김)가 있으면 모서리에 그 수를 달아 묶음 속에서도 보이게 한다
+    const urgent = items.filter((t) => URGENT_KINDS.includes(kindOf(t))).length;
+    if (urgent > 0) {
+      const badge = document.createElement('span');
+      badge.className = `tm-badge tm-badge--${kind}`;
+      badge.textContent = String(urgent);
+      node.appendChild(badge);
+    }
     node.setAttribute('aria-label', `나무 ${count}그루 묶음(${MARKER_LABEL[kind]} 포함). 눌러서 확대`);
     node.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -176,6 +186,10 @@ export function createTreeMap<T extends MapTree>(el: HTMLElement, options: TreeM
     setCenter(p) {
       engine?.setCenter(p);
     },
+    focus(p, minZoom = CLUSTER_UNTIL_ZOOM) {
+      if (!engine) return;
+      engine.setView(p, Math.max(engine.getZoom(), minZoom));
+    },
     destroy() {
       destroyed = true;
       drawn.forEach((m) => m.remove());
@@ -185,6 +199,9 @@ export function createTreeMap<T extends MapTree>(el: HTMLElement, options: TreeM
     },
   };
 }
+
+// 묶음에 따로 수를 달아 줄 급한 종류
+const URGENT_KINDS: readonly MarkerKind[] = ['report', 'inactive'];
 
 // 급한 종류일수록 위에 그린다
 function zIndexOf(kind: MarkerKind): number {

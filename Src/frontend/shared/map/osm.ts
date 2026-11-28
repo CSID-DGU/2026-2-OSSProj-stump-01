@@ -187,6 +187,13 @@ export function createOsmEngine(el: HTMLElement, center: LatLng, zoom: number): 
       render();
       idleSoon();
     },
+    setView(p, next) {
+      cx = toWorldX(p.lng);
+      cy = toWorldY(p.lat);
+      z = clampZoom(next);
+      render();
+      idleSoon();
+    },
     addMarker(p, node, zIndex): MarkerHandle {
       const m = { p, node };
       node.classList.add('tm-osm-marker');
